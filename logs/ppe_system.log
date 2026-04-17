@@ -1,0 +1,41 @@
+2026-04-16 20:41:15 | INFO     | 📝 Logger iniciado | violations: D:\projeto-tcc-melhorado\violations
+2026-04-16 20:41:15 | WARNING  | 📱 Telegram NÃO configurado — alertas desabilitados.
+   → Preencha TELEGRAM_TOKEN e TELEGRAM_CHAT_ID no .env
+2026-04-16 20:41:15 | INFO     | 🎬 Inicializando câmera: 0
+2026-04-16 20:41:17 | SUCCESS  | ✅ Câmera iniciada com sucesso!
+2026-04-16 20:41:17 | INFO     |   📐 Resolução: 640x360
+2026-04-16 20:41:17 | INFO     |   🎞️  FPS da câmera: Não disponível
+2026-04-16 20:41:17 | INFO     |   🔧 Backend: 700
+2026-04-16 20:42:55 | INFO     | 📷 Câmera liberada
+2026-04-16 20:42:55 | WARNING  | ⚠️  Tentando reconectar... (tentativa 1/3)
+2026-04-16 20:42:55 | INFO     | 🎬 Inicializando câmera: 0
+2026-04-16 20:42:57 | SUCCESS  | ✅ Câmera iniciada com sucesso!
+2026-04-16 20:42:57 | INFO     |   📐 Resolução: 640x360
+2026-04-16 20:42:57 | INFO     |   🎞️  FPS da câmera: Não disponível
+2026-04-16 20:42:57 | INFO     |   🔧 Backend: 700
+2026-04-16 20:42:57 | INFO     | 📷 Câmera liberada
+2026-04-16 20:43:57 | INFO     | 📝 Logger iniciado | violations: D:\projeto-tcc-melhorado\violations
+2026-04-16 20:43:57 | WARNING  | 📱 Telegram NÃO configurado — alertas desabilitados.
+   → Preencha TELEGRAM_TOKEN e TELEGRAM_CHAT_ID no .env
+2026-04-16 20:43:57 | INFO     | 🎬 Inicializando câmera: 0
+2026-04-16 20:43:59 | SUCCESS  | ✅ Câmera iniciada com sucesso!
+2026-04-16 20:43:59 | INFO     |   📐 Resolução: 640x360
+2026-04-16 20:43:59 | INFO     |   🎞️  FPS da câmera: Não disponível
+2026-04-16 20:43:59 | INFO     |   🔧 Backend: 700
+2026-04-16 20:51:57 | INFO     | 📷 Câmera liberada
+2026-04-16 20:55:57 | INFO     | 📝 Logger iniciado | violations: D:\projeto-tcc-melhorado\violations
+2026-04-16 20:55:57 | WARNING  | 📱 Telegram NÃO configurado — alertas desabilitados.
+   → Preencha TELEGRAM_TOKEN e TELEGRAM_CHAT_ID no .env
+2026-04-16 20:55:57 | INFO     | 🎬 Inicializando câmera: 0
+2026-04-16 20:55:59 | SUCCESS  | ✅ Câmera iniciada com sucesso!
+2026-04-16 20:55:59 | INFO     |   📐 Resolução: 640x360
+2026-04-16 20:55:59 | INFO     |   🎞️  FPS da câmera: Não disponível
+2026-04-16 20:55:59 | INFO     |   🔧 Backend: 700
+2026-04-16 20:56:46 | INFO     | 📷 Câmera liberada
+2026-04-16 20:56:46 | WARNING  | ⚠️  Tentando reconectar... (tentativa 1/3)
+2026-04-16 20:56:46 | INFO     | 🎬 Inicializando câmera: 0
+2026-04-16 20:56:48 | SUCCESS  | ✅ Câmera iniciada com sucesso!
+2026-04-16 20:56:48 | INFO     |   📐 Resolução: 640x360
+2026-04-16 20:56:48 | INFO     |   🎞️  FPS da câmera: Não disponível
+2026-04-16 20:56:48 | INFO     |   🔧 Backend: 700
+2026-04-16 20:56:48 | INFO     | 📷 Câmera liberada

@@ -1,0 +1,30 @@
+# ============================================================
+#  requirements.txt — SafeGuard EPI Monitor
+#  TCC: Visão Computacional e IA em Tempo Real
+# ============================================================
+
+# ── IA e Visão Computacional ──────────────────────────────────
+ultralytics>=8.3.0           # YOLOv8 — 8.3+ resolve bug do PyTorch 2.6
+opencv-python>=4.8.0         # Captura e manipulação de frames
+numpy>=1.24.0                # <-- MUDANÇA AQUI: Removido o limite <2.0.0
+
+# ── Interface Gráfica Desktop ─────────────────────────────────
+customtkinter>=5.2.0         # GUI moderna (substitui tkinter padrão)
+Pillow>=10.0.0               # Necessário para CTkImage
+
+# ── Dashboard web (modo alternativo) ─────────────────────────
+streamlit>=1.32.0
+
+# ── Alertas ───────────────────────────────────────────────────
+requests>=2.31.0             # Telegram Bot API
+
+# ── Utilitários ───────────────────────────────────────────────
+python-dotenv>=1.0.0
+loguru>=0.7.0
+
+# ── Análise e Métricas ────────────────────────────────────────
+scikit-learn>=1.3.0
+matplotlib>=3.8.0            # Gráficos embutidos no dashboard
+pandas>=2.0.0
+
+# pyinstaller>=6.0.0         # descomente para gerar .exe
