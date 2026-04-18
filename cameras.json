@@ -1,0 +1,19 @@
+{
+    "setor_producao": [
+        {
+            "id": "CAM_01",
+            "local": "Linha de Montagem A",
+            "url": "rtsp://admin:senha@192.168.1.101:554/stream"
+        },
+        {
+            "id": "CAM_02",
+            "local": "Saída da Prensa 04",
+            "url": "rtsp://admin:senha@192.168.1.102:554/stream"
+        },
+        {
+            "id": "CAM_03",
+            "local": "Corredor de Logística",
+            "url": "rtsp://admin:senha@192.168.1.103:554/stream"
+        }
+    ]
+}

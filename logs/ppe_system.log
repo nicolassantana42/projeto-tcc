@@ -39,3 +39,30 @@
 2026-04-16 20:56:48 | INFO     |   🎞️  FPS da câmera: Não disponível
 2026-04-16 20:56:48 | INFO     |   🔧 Backend: 700
 2026-04-16 20:56:48 | INFO     | 📷 Câmera liberada
+2026-04-17 21:57:40 | INFO     | 📝 Logger iniciado | violations: D:\tcc\projeto-tcc\violations
+2026-04-17 21:57:40 | WARNING  | 📱 Telegram NÃO configurado — alertas desabilitados.
+   → Preencha TELEGRAM_TOKEN e TELEGRAM_CHAT_ID no .env
+2026-04-17 21:57:40 | INFO     | 🎬 Inicializando câmera: 0
+2026-04-17 21:57:42 | SUCCESS  | ✅ Câmera iniciada com sucesso!
+2026-04-17 21:57:42 | INFO     |   📐 Resolução: 640x360
+2026-04-17 21:57:42 | INFO     |   🎞️  FPS da câmera: Não disponível
+2026-04-17 21:57:42 | INFO     |   🔧 Backend: 700
+2026-04-17 21:58:50 | INFO     | 📷 Câmera liberada
+2026-04-17 22:14:40 | INFO     | 📝 Logger iniciado | violations: D:\tcc\projeto-tcc\violations
+2026-04-17 22:14:40 | WARNING  | 📱 Telegram NÃO configurado — alertas desabilitados.
+   → Preencha TELEGRAM_TOKEN e TELEGRAM_CHAT_ID no .env
+2026-04-17 22:14:40 | INFO     | 🎬 Inicializando câmera: 0
+2026-04-17 22:14:42 | SUCCESS  | ✅ Câmera iniciada com sucesso!
+2026-04-17 22:14:42 | INFO     |   📐 Resolução: 640x360
+2026-04-17 22:14:42 | INFO     |   🎞️  FPS da câmera: Não disponível
+2026-04-17 22:14:42 | INFO     |   🔧 Backend: 700
+2026-04-17 22:15:25 | INFO     | 📷 Câmera liberada
+2026-04-17 22:27:19 | INFO     | 📝 Logger iniciado | violations: D:\tcc\projeto-tcc\violations
+2026-04-17 22:27:19 | WARNING  | 📱 Telegram NÃO configurado — alertas desabilitados.
+   → Preencha TELEGRAM_TOKEN e TELEGRAM_CHAT_ID no .env
+2026-04-17 22:27:19 | INFO     | 🎬 Inicializando câmera: 0
+2026-04-17 22:27:21 | SUCCESS  | ✅ Câmera iniciada com sucesso!
+2026-04-17 22:27:21 | INFO     |   📐 Resolução: 640x360
+2026-04-17 22:27:21 | INFO     |   🎞️  FPS da câmera: Não disponível
+2026-04-17 22:27:21 | INFO     |   🔧 Backend: 700
+2026-04-17 22:30:08 | INFO     | 📷 Câmera liberada

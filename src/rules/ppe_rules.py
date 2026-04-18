@@ -1,274 +1,105 @@
-# ============================================================
-#  src/rules/ppe_rules.py
-#  Motor de Regras EPI — CORAÇÃO DO TCC
-#  TCC: Monitoramento de EPI com Visão Computacional
-# ============================================================
-#
-#  CONTRIBUIÇÃO CIENTÍFICA:
-#  ────────────────────────
-#  Esta lógica vai além de simples detecção de objetos.
-#  Ela associa cada EPI à pessoa CORRETA usando análise
-#  espacial de bounding boxes, suportando múltiplas
-#  pessoas no mesmo frame de forma independente.
-#
-# ============================================================
+import cv2
+from typing import List
+from src.ai.detector import FrameResult, Detection
 
-import sys
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import List, Optional, Tuple
-
-import numpy as np
-from loguru import logger
-
-# Garante que a raiz do projeto esteja no sys.path
-_ROOT = Path(__file__).resolve().parents[2]
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
-
-from config import HEAD_REGION_RATIO, HELMET_IOU_THRESHOLD, REQUIRE_HELMET, REQUIRE_VEST
-from src.ai.detector import Detection, FrameResult
-
-
-@dataclass
 class PersonStatus:
-    """
-    Status completo de EPI para uma pessoa detectada no frame.
-    """
-    person:     Detection
-    has_helmet: bool       = False
-    has_vest:   bool       = False
-    has_boots:  bool       = False  # NOVO: Suporte a botas
-    head_box:   List[int]  = field(default_factory=list)
-    feet_box:   List[int]  = field(default_factory=list)  # NOVO: Região dos pés
-    helmet_iou: float      = 0.0
-    boots_iou:  float      = 0.0  # NOVO: IoU das botas
-    violations: List[str]  = field(default_factory=list)
-
-    @property
-    def is_compliant(self) -> bool:
-        return len(self.violations) == 0
-    
-    @property
-    def person_bbox(self) -> List[int]:
-        """Retorna bounding box da pessoa [x1, y1, x2, y2]."""
-        return self.person.bbox
-
-    def __str__(self) -> str:
-        tag = "✅ CONFORME" if self.is_compliant else f"⚠️  {', '.join(self.violations)}"
-        return f"Pessoa ({self.person.x1},{self.person.y1}) → {tag}"
-
+    """Armazena o estado de conformidade de cada pessoa detectada."""
+    def __init__(self, person_det: Detection):
+        self.person_bbox = person_det.bbox
+        self.is_compliant = True
+        self.violations = []
+        self.found_elements = []  # Armazena quais EPIs foram validados
 
 class PPERulesEngine:
-    """
-    Motor de regras que associa EPIs detectados às pessoas corretas.
+    def __init__(self):
+        # Configurações de obrigatoriedade (Podem vir do config.py)
+        self.require_helmet = True
+        self.require_vest = True
+        self.require_boot = True
+        
+        # Margem de erro para considerar que um EPI pertence à pessoa (em pixels)
+        self.pixel_margin = 15 
 
-    METODOLOGIA (contribuição científica do TCC):
-    ─────────────────────────────────────────────
-    Para cada pessoa P detectada no frame:
+    def _is_inside(self, epi_bbox: List[int], person_bbox: List[int]) -> bool:
+        """Verifica se o centro do EPI está dentro da caixa da pessoa."""
+        # Centro do EPI
+        ex = (epi_bbox[0] + epi_bbox[2]) // 2
+        ey = (epi_bbox[1] + epi_bbox[3]) // 2
+        
+        # Coordenadas da Pessoa
+        px1, py1, px2, py2 = person_bbox
+        
+        # Verifica inclusão com pequena margem de tolerância
+        return (px1 - self.pixel_margin <= ex <= px2 + self.pixel_margin) and \
+               (py1 - self.pixel_margin <= ey <= py2 + self.pixel_margin)
 
-    1. REGIÃO DA CABEÇA:
-       Extrai os N% superiores da bounding box de P.
-       Parâmetro: HEAD_REGION_RATIO (padrão: 30%)
-
-    2. ASSOCIAÇÃO CAPACETE (IoU-based):
-       Para cada capacete H detectado, calcula IoU entre H
-       e a região da cabeça de P. Se IoU ≥ threshold → capacete OK.
-
-    3. ASSOCIAÇÃO COLETE (centro-point):
-       Verifica se o centro do colete está dentro da bbox de P.
-
-    4. VIOLAÇÃO:
-       Gera alerta apenas para pessoas sem os EPIs obrigatórios.
-
-    VANTAGEM vs. detecção simples:
-       Detecção simples: "há capacete no frame?" → falsos negativos
-       Nossa abordagem: "ESTA pessoa tem capacete?" → preciso para N pessoas
-    """
-
-    def __init__(self,
-                 require_helmet: bool = REQUIRE_HELMET,
-                 require_vest:   bool = REQUIRE_VEST,
-                 require_boots:  bool = False):  # NOVO: Suporte a botas
-        self.require_helmet = require_helmet
-        self.require_vest   = require_vest
-        self.require_boots  = require_boots  # NOVO
-        logger.info(
-            f"🔧 Motor de Regras EPI | "
-            f"Capacete: {'OBRIGATÓRIO' if require_helmet else 'opcional'} | "
-            f"Colete: {'OBRIGATÓRIO' if require_vest else 'opcional'} | "
-            f"Botas: {'OBRIGATÓRIO' if require_boots else 'opcional'}"  # NOVO
-        )
-
-    def evaluate(self, frame_result: FrameResult) -> List[PersonStatus]:
+    def evaluate(self, result: FrameResult) -> List[PersonStatus]:
         """
-        Avalia o status de EPI de cada pessoa no frame.
-
-        Returns:
-            Lista de PersonStatus, um por pessoa detectada.
+        Aplica a lógica de engenharia de prompt:
+        Para cada pessoa, verifica se os EPIs obrigatórios estão presentes em seu BBox.
         """
         statuses = []
 
-        for person in frame_result.persons:
-            status = PersonStatus(person=person)
+        for person in result.persons:
+            status = PersonStatus(person)
+            
+            # 1. Verificar Capacete
+            has_helmet = any(self._is_inside(h.bbox, person.bbox) for h in result.helmets)
+            if self.require_helmet and not has_helmet:
+                status.is_compliant = False
+                status.violations.append("Capacete Ausente")
+            elif has_helmet:
+                status.found_elements.append("Capacete")
 
-            # 1. Calcula região da cabeça
-            status.head_box = self._compute_head_region(person)
+            # 2. Verificar Colete
+            has_vest = any(self._is_inside(v.bbox, person.bbox) for v in result.vests)
+            if self.require_vest and not has_vest:
+                status.is_compliant = False
+                status.violations.append("Colete Ausente")
+            elif has_vest:
+                status.found_elements.append("Colete")
 
-            # 2. Verifica capacete
-            if frame_result.helmets:
-                best_iou, _ = self._find_best_helmet(status.head_box, frame_result.helmets)
-                status.helmet_iou = best_iou
-                status.has_helmet = best_iou >= HELMET_IOU_THRESHOLD
-                if status.has_helmet:
-                    logger.debug(f"✅ Capacete associado ({person.x1},{person.y1}) IoU={best_iou:.3f}")
-            else:
-                status.has_helmet = False
-
-            # 3. Verifica colete
-            if frame_result.vests:
-                status.has_vest = self._check_vest(person, frame_result.vests)
-            else:
-                status.has_vest = False
-
-            # 4. Verifica botas (NOVO)
-            # Calcula região dos pés (20% inferiores da bbox)
-            status.feet_box = self._compute_feet_region(person)
-            # TODO: Implementar detecção de botas quando modelo treinado disponível
-            # Por enquanto, assume que não há botas detectadas
-            status.has_boots = False
-
-            # 5. Gera violações
-            if self.require_helmet and not status.has_helmet:
-                status.violations.append("SEM CAPACETE")
-            if self.require_vest and not status.has_vest:
-                status.violations.append("SEM COLETE")
-            if self.require_boots and not status.has_boots:
-                status.violations.append("SEM BOTAS")  # NOVO
+            # 3. Verificar Bota (Classe que adicionamos)
+            has_boot = any(self._is_inside(b.bbox, person.bbox) for b in result.boots)
+            if self.require_boot and not has_boot:
+                status.is_compliant = False
+                status.violations.append("Bota Ausente")
+            elif has_boot:
+                status.found_elements.append("Bota")
 
             statuses.append(status)
-            logger.debug(str(status))
 
         return statuses
 
-    # ── Análise Espacial ──────────────────────────────────────
-
-    def _compute_head_region(self, person: Detection) -> List[int]:
-        """
-        Extrai a região da cabeça como os N% superiores da bbox.
-
-        Visualização:
-          ┌─────────┐  ← y1
-          │  CABEÇA │  ← HEAD_REGION_RATIO = 30%
-          ├─────────┤  ← y1 + head_height
-          │         │
-          │  TORSO  │
-          │         │
-          └─────────┘  ← y2
-        """
-        head_height = int(person.height * HEAD_REGION_RATIO)
-        return [person.x1, person.y1, person.x2, person.y1 + head_height]
-
-    def _compute_feet_region(self, person: Detection) -> List[int]:
-        """
-        Extrai a região dos pés como os 20% inferiores da bbox.
-
-        Visualização:
-          ┌─────────┐  ← y1
-          │  CABEÇA │
-          ├─────────┤
-          │  TORSO  │
-          │         │
-          ├─────────┤  ← y2 - feet_height
-          │   PERNAS│  
-          │  /BOTAS │  ← FEET_REGION_RATIO = 20%
-          └─────────┘  ← y2
-        """
-        FEET_REGION_RATIO = 0.20
-        feet_height = int(person.height * FEET_REGION_RATIO)
-        return [person.x1, person.y2 - feet_height, person.x2, person.y2]
-
-    def _compute_iou(self, box_a: List[int], box_b: List[int]) -> float:
-        """
-        Calcula IoU (Intersection over Union) entre duas bounding boxes.
-        IoU = 0.0 → sem sobreposição | IoU = 1.0 → sobreposição perfeita
-        """
-        ix1 = max(box_a[0], box_b[0])
-        iy1 = max(box_a[1], box_b[1])
-        ix2 = min(box_a[2], box_b[2])
-        iy2 = min(box_a[3], box_b[3])
-
-        iw = max(0, ix2 - ix1)
-        ih = max(0, iy2 - iy1)
-        intersection = iw * ih
-
-        if intersection == 0:
-            return 0.0
-
-        area_a = (box_a[2] - box_a[0]) * (box_a[3] - box_a[1])
-        area_b = (box_b[2] - box_b[0]) * (box_b[3] - box_b[1])
-        union  = area_a + area_b - intersection
-
-        return intersection / union if union > 0 else 0.0
-
-    def _find_best_helmet(self,
-                          head_box: List[int],
-                          helmets: List[Detection]) -> Tuple[float, Optional[Detection]]:
-        """Encontra o capacete com maior IoU em relação à cabeça."""
-        best_iou    = 0.0
-        best_helmet = None
-        for helmet in helmets:
-            iou = self._compute_iou(head_box, helmet.bbox)
-            if iou > best_iou:
-                best_iou    = iou
-                best_helmet = helmet
-        return best_iou, best_helmet
-
-    def _check_vest(self, person: Detection, vests: List[Detection]) -> bool:
-        """Verifica se o centro de algum colete está dentro da bbox da pessoa."""
-        for vest in vests:
-            if (person.x1 <= vest.center_x <= person.x2 and
-                    person.y1 <= vest.center_y <= person.y2):
-                return True
-        return False
-
-
-# ── Visualização ─────────────────────────────────────────────
-
-def draw_ppe_status(frame: np.ndarray, statuses: List[PersonStatus]) -> np.ndarray:
-    """
-    Desenha o status de EPI no frame.
-
-    Verde  → Conforme (todos os EPIs presentes)
-    Vermelho → Infração detectada
-    """
-    import cv2
-
+def draw_ppe_status(frame, statuses: List[PersonStatus]):
+    """Desenha as caixas coloridas e as violações no frame final."""
     for status in statuses:
-        p     = status.person
-        ok    = status.is_compliant
-        color = (0, 200, 60) if ok else (0, 50, 220)
-        thick = 2 if ok else 3
+        x1, y1, x2, y2 = status.person_bbox
+        
+        # Verde para Seguro, Vermelho para Inseguro
+        color = (0, 255, 0) if status.is_compliant else (0, 0, 255)
+        thickness = 2
+        
+        # Desenha BBox da pessoa
+        cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)
+        
+        # Header do status
+        label = "CONFORME" if status.is_compliant else "VIOLACAO"
+        (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
+        cv2.rectangle(frame, (x1, y1 - th - 10), (x1 + tw + 10, y1), color, -1)
+        cv2.putText(frame, label, (x1 + 5, y1 - 7), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
-        # Bounding box da pessoa
-        cv2.rectangle(frame, (p.x1, p.y1), (p.x2, p.y2), color, thick)
-
-        # Tag de status
-        tag        = "✓ CONFORME" if ok else "✗ " + " | ".join(status.violations)
-        font       = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 0.55
-        (tw, th), _ = cv2.getTextSize(tag, font, font_scale, 2)
-
-        bg_color = (0, 130, 40) if ok else (0, 30, 190)
-        ty = max(p.y1 - 10, th + 10)
-
-        cv2.rectangle(frame, (p.x1, ty - th - 8), (p.x1 + tw + 10, ty + 2), bg_color, -1)
-        cv2.putText(frame, tag, (p.x1 + 5, ty - 2),
-                    font, font_scale, (255, 255, 255), 2, cv2.LINE_AA)
-
-        # Região da cabeça (debug visual)
-        if status.head_box:
-            hx1, hy1, hx2, hy2 = status.head_box
-            cv2.rectangle(frame, (hx1, hy1), (hx2, hy2), (0, 165, 255), 1)
-
+        # Listagem de violações abaixo da caixa
+        if not status.is_compliant:
+            y_offset = y2 + 20
+            for violation in status.violations:
+                # Sombra para leitura
+                cv2.putText(frame, f"! {violation}", (x1 + 1, y_offset + 1),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
+                # Texto do Alerta
+                cv2.putText(frame, f"! {violation}", (x1, y_offset),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+                y_offset += 20
+                
     return frame
