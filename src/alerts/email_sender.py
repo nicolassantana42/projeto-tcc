@@ -1,76 +1,59 @@
+# src/alerts/email_sender.py
 import smtplib
+from email.message import EmailMessage
+import threading
 import cv2
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.image import MIMEImage
-from datetime import datetime
-from loguru import logger
+import time
+import config
 
-# Importa as configurações do seu config.py
-from config import (
-    SMTP_SERVER, SMTP_PORT, EMAIL_SENDER, 
-    EMAIL_PASS, EMAIL_RECEIVER
-)
+class AsyncEmailSender:
+    def __init__(self):
+        self._lock = threading.Lock()
 
-class EmailAlert:
-    """
-    Responsável pelo empacotamento e envio dos alertas 
-    fotográficos via protocolo SMTP.
-    """
+    def send_violation_alert(self, image, cam_name, sector):
+        """Inicia o envio em Background (Não trava a detecção YOLO)"""
+        thread = threading.Thread(
+            target=self._process_email, 
+            args=(image, cam_name, sector)
+        )
+        thread.daemon = True
+        thread.start()
 
-    @staticmethod
-    def send_violation(frame, violations, camera_id="Não Identificada"):
-        """
-        Monta o e-mail com a foto anexa e os dados da infração.
-        """
-        try:
-            # 1. Cria a estrutura da mensagem
-            msg = MIMEMultipart()
-            msg['From'] = EMAIL_SENDER
-            msg['To'] = EMAIL_RECEIVER
-            msg['Subject'] = f"⚠️ [SISTEMA EPI] VIOLAÇÃO: {camera_id}"
+    def _process_email(self, image, cam_name, sector):
+        with self._lock:
+            try:
+                # 1. Configurar Mensagem
+                msg = EmailMessage()
+                msg['Subject'] = f"URGENTE: Violação de EPI - {cam_name} ({sector})"
+                msg['From'] = config.EMAIL_SENDER
+                msg['To'] = config.EMAIL_RECEIVER
+                
+                data_hora = time.strftime('%d/%m/%Y %H:%M:%S')
+                body = (
+                    f"Atenção!\n\n"
+                    f"Uma violação de segurança foi detectada pelo sistema.\n"
+                    f"Trabalhador flagrado sem EPI completo (Capacete e/ou Bota).\n\n"
+                    f"Detalhes da Ocorrência:\n"
+                    f"- Câmera: {cam_name}\n"
+                    f"- Setor: {sector}\n"
+                    f"- Data/Hora: {data_hora}\n\n"
+                    f"A evidência em imagem está anexada neste email."
+                )
+                msg.set_content(body)
 
-            timestamp = datetime.now().strftime("%d/%m/%Y às %H:%M:%S")
+                # 2. Converter imagem OpenCV para Anexo
+                success, img_encoded = cv2.imencode('.jpg', image)
+                if success:
+                    msg.add_attachment(img_encoded.tobytes(), maintype='image', subtype='jpeg', filename=f'evidencia_{cam_name}.jpg')
+
+                # 3. Enviar via SMTP
+                with smtplib.SMTP(config.SMTP_SERVER, config.SMTP_PORT) as server:
+                    server.starttls()
+                    server.login(config.EMAIL_SENDER, config.EMAIL_PASSWORD)
+                    server.send_message(msg)
+                    
+                print(f"\n[SUCESSO] Email enviado para {config.EMAIL_RECEIVER} (Câmera: {cam_name})\n")
             
-            # 2. Corpo do e-mail em HTML (Estilo Profissional)
-            lista_html = "".join([f"<li><b>{v}</b></li>" for v in violations])
-            
-            body = f"""
-            <html>
-            <body style="font-family: Arial, sans-serif;">
-                <h2 style="color: #d32f2f;">Alerta de Segurança do Trabalho</h2>
-                <p>Uma irregularidade no uso de EPI foi detectada pelo sistema automático.</p>
-                <hr>
-                <p><b>📍 Localização:</b> {camera_id}</p>
-                <p><b>⏰ Horário:</b> {timestamp}</p>
-                <p><b>❌ Irregularidades encontradas:</b></p>
-                <ul>{lista_html}</ul>
-                <br>
-                <p><i>Verifique a imagem em anexo para comprovação visual.</i></p>
-            </body>
-            </html>
-            """
-            msg.attach(MIMEText(body, 'html'))
-
-            # 3. Processamento da Imagem (Converte frame OpenCV para anexo)
-            success, buffer = cv2.imencode('.jpg', frame)
-            if not success:
-                logger.error("Falha ao codificar imagem para o e-mail.")
-                return False
-
-            image_attachment = MIMEImage(buffer.tobytes())
-            image_attachment.add_header('Content-Disposition', 'attachment', filename=f"violacao_{camera_id}.jpg")
-            msg.attach(image_attachment)
-
-            # 4. Conexão com o Servidor e Envio
-            with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-                server.starttls()  # Camada de segurança
-                server.login(EMAIL_SENDER, EMAIL_PASS)
-                server.send_message(msg)
-            
-            logger.success(f"📧 E-mail enviado com sucesso para {EMAIL_RECEIVER}")
-            return True
-
-        except Exception as e:
-            logger.error(f"❌ Falha crítica no envio de e-mail: {e}")
-            return False
+            except Exception as e:
+                # Parte 4: Garantir que não falhe silenciosamente no log
+                print(f"\n[ERRO CRÍTICO] Falha no envio de email. Verifique internet ou credenciais. Detalhe: {e}\n")
