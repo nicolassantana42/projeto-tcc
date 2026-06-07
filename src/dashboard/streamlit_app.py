@@ -775,12 +775,13 @@ with tab2:
     st.dataframe(test, use_container_width=True, hide_index=True)
 
 with tab3:
-    # Curva PR simulada baseada nos resultados reportados
+    # 1. GERAR OS DADOS (Isso não pode faltar, senão dá o erro de 'recall' não definido!)
     import numpy as np
     np.random.seed(42)
     recall    = np.linspace(0, 1, 50)
     precision = np.array([max(0.55, 1 - 0.38*r**1.4 + (0.03 if r < 0.7 else -0.05)) for r in recall])
 
+    # 2. CONFIGURAR O GRÁFICO
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=recall, y=precision,
@@ -791,11 +792,15 @@ with tab3:
     fig.add_hline(y=0.924, line_dash="dash", line_color="#f5a623",
                   annotation_text="mAP@0.5 = 92.4%",
                   annotation_font=dict(family="Share Tech Mono", color="#f5a623", size=11))
-    fig.update_layout(**PLOTLY_BASE,
-                      title='CURVA PRECISÃO × RECALL — YOLOv8s',
-                      xaxis_title="Recall", yaxis_title="Precisão",
-                      xaxis=dict(range=[0,1], gridcolor="#2d2d2d", linecolor="#3a3a3a"),
-                      yaxis=dict(range=[0.5,1.05], gridcolor="#2d2d2d", linecolor="#3a3a3a"))
+    
+    # 3. COMPORTAMENTO CORRIGIDO DA AJUSTE DE LAYOUT (Sem duplicar eixos)
+    fig.update_layout(
+        **{k:v for k,v in PLOTLY_BASE.items() if k not in ['xaxis','yaxis']},
+        title='CURVA PRECISÃO × RECALL — YOLOv8s',
+        xaxis_title="Recall", yaxis_title="Precisão",
+        xaxis=dict(range=[0,1], gridcolor="#2d2d2d", linecolor="#3a3a3a"),
+        yaxis=dict(range=[0.5,1.05], gridcolor="#2d2d2d", linecolor="#3a3a3a")
+    )
     st.plotly_chart(fig, use_container_width=True)
     st.caption("CURVA GERADA COM BASE NOS RESULTADOS EXPERIMENTAIS REPORTADOS")
 
