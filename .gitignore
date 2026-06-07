@@ -1,0 +1,72 @@
+# ==========================================
+# Ambientes Virtuais (Virtual Environments)
+# ==========================================
+.venv/
+venv/
+env/
+ENV/
+bin/
+lib/
+include/
+share/
+
+# ==========================================
+# Caches de Execução do Python
+# ==========================================
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# ==========================================
+# Arquivos de Configuração Local e Segredos
+# ==========================================
+.env
+.env.local
+.flaskenv
+
+# ==========================================
+# Banco de Dados Local (SQLite)
+# ==========================================
+*.db
+*.sqlite3
+# Ignora a pasta inteira de logs gerados, mantendo apenas a estrutura se necessário
+logs/
+
+# ==========================================
+# Pesos do YOLO / Inteligência Artificial
+# ==========================================
+# Ignora arquivos de pesos grandes para não travar o upload do Git
+*.pt
+*.onnx
+*.engine
+
+# ==========================================
+# Evidências, Imagens e Mídias de Teste
+# ==========================================
+violations/
+*.jpg
+*.jpeg
+*.png
+*.mp4
+*.avi
+
+# ==========================================
+# IDEs e Editores de Código
+# ==========================================
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# ==========================================
+# Sistema Operacional
+# ==========================================
+Thumbs.db
+Desktop.ini
+.DS_Store
