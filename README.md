@@ -1,228 +1,101 @@
-# 🦺 Sistema Inteligente de Monitoramento de EPI
-**TCC — Visão Computacional e Inteligência Artificial em Tempo Real**
+# Monitoramento de EPI com YOLO e regras espaciais
 
----
+Pipeline do TCC: captura de vídeo → YOLO → associação pessoa/EPI → confirmação temporal → evidência e alerta.
 
-## 📋 Visão Geral
+## Executar
 
-Sistema automatizado de monitoramento de Equipamentos de Proteção Individual (EPI) utilizando **YOLOv8** e **OpenCV**, capaz de detectar em tempo real trabalhadores sem capacete e/ou colete de segurança, gerando alertas automáticos via **Telegram** e um **Dashboard** interativo.
+Use Python 3.10 ou superior (validado com Python 3.12). Na raiz do projeto:
 
-### Contribuição Científica
-
-O diferencial técnico deste projeto é o **motor de regras espaciais** (`src/rules/ppe_rules.py`) que, ao contrário de uma simples detecção de objetos, **associa cada EPI à pessoa correta** utilizando análise de bounding boxes e IoU (Intersection over Union). Isso permite monitorar múltiplas pessoas no mesmo frame de forma independente e precisa.
-
----
-
-## 🏗️ Estrutura do Projeto
-
-```
-ppe_monitor/
-├── main.py                          ← Ponto de entrada principal
-├── config.py                        ← Configurações centrais
-├── setup_and_test.py                ← Instalação e validação
-├── requirements.txt                 ← Dependências Python
-├── .env                             ← Suas configurações (não commitar!)
-├── .env.example                     ← Modelo de configuração
-│
-├── src/
-│   ├── camera/
-│   │   └── capture.py               ← Captura de vídeo + FPS counter
-│   ├── ai/
-│   │   └── detector.py              ← Inferência YOLOv8
-│   ├── rules/
-│   │   └── ppe_rules.py             ← Motor de regras EPI (coração do TCC)
-│   ├── alerts/
-│   │   ├── logger.py                ← Log em arquivo + JSON + imagens
-│   │   └── telegram.py              ← Alertas Telegram Bot
-│   └── dashboard/
-│       └── streamlit_app.py         ← Dashboard de monitoramento
-│
-├── violations/                      ← Imagens das infrações (gerado automaticamente)
-└── logs/                            ← Logs e JSON (gerado automaticamente)
-```
-
----
-
-## 🚀 Instalação e Execução
-
-### Pré-requisitos
-- Python 3.9 ou superior
-- **Câmera:** Webcam, USB, ou IP (Intelbras, Hikvision, etc)
-- Conexão com internet (para baixar o modelo na 1ª vez)
-
-### Passo 1 — Setup inicial
-
-```bash
-# Clone ou extraia o projeto
-cd ppe_monitor
-
-# Execute o setup (instala tudo e valida)
-python setup_and_test.py
-```
-
-### Passo 2 — Configure a câmera
-
-#### 🎥 Para Webcam/USB:
-```bash
-# Detecte câmeras automaticamente:
-python test_camera.py --detect
-
-# Teste uma câmera específica:
-python test_camera.py --index 0
-
-# Configure no .env o índice detectado:
-CAMERA_INDEX=0  # 0=primeira câmera, 1=segunda, etc
-```
-
-#### 📡 Para Câmeras IP (Intelbras, Hikvision, etc):
-```bash
-# 1. Encontre a URL RTSP da sua câmera
-# 2. Teste no VLC primeiro: Mídia > Abrir Fluxo de Rede
-# 3. Configure no .env:
-
-# Exemplo Intelbras:
-CAMERA_INDEX=rtsp://admin:senha@192.168.1.108:554/cam/realmonitor?channel=1&subtype=0
-
-# Exemplo Hikvision:
-CAMERA_INDEX=rtsp://admin:senha@192.168.1.64:554/Streaming/Channels/101
-
-# Exemplo HTTP/MJPEG:
-CAMERA_INDEX=http://192.168.1.108/video.mjpg
-```
-
-**💡 Dicas importantes:**
-- Use IP fixo na câmera para evitar mudanças
-- Verifique firewall e rede
-- Para troubleshooting: veja [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
-
-### Passo 3 — Configure alertas (opcional)
-
-```env
-TELEGRAM_TOKEN=seu_token_aqui      # Do @BotFather
-TELEGRAM_CHAT_ID=seu_chat_id_aqui  # Do /getUpdates
-```
-
-### Passo 4 — Execute
-
-```bash
-# Terminal 1: Sistema principal (câmera + detecção)
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements-core.txt
+Copy-Item .env.example .env
 python main.py
-
-# Terminal 2: Dashboard (opcional, mas recomendado para a banca)
-streamlit run src/dashboard/streamlit_app.py
 ```
 
-### Teclas durante execução
+Em Linux/macOS, ative com `source .venv/bin/activate` e copie com `cp .env.example .env`.
+O primeiro uso baixa os pesos oficiais `yolov8n.pt`, se ainda não existirem.
+
+```text
+python main.py --source 0
+python main.py --source video.mp4 --headless --max-frames 100
+python main.py --source rtsp://endereco-da-camera/stream
+```
+
+`CAMERA_INDEX` no `.env` aceita índice USB, arquivo ou URL RTSP/HTTP. `SHOW_VIDEO=false` também desativa a janela. Sem janela, use Ctrl+C para encerrar. O fim de um arquivo encerra o processo; a captura principal também encerra se a fonte parar de entregar frames. A classe opcional `IPCameraStream` mantém captura em thread para o dashboard.
 
 | Tecla | Ação |
-|-------|------|
-| `Q` / `ESC` | Encerrar o sistema |
-| `B` | Executar benchmark de performance |
-| `S` | Salvar frame atual manualmente |
+| --- | --- |
+| Q / ESC | Encerrar e liberar recursos |
+| B | Benchmark de 50 inferências no mesmo frame |
+| S | Salvar o frame exibido em PNG |
+| D | Mostrar/ocultar a região da cabeça |
 
----
+O HUD exibe modo, FPS do pipeline, frames e registros do dia. Registros são eventos após confirmação e cooldown; não representam quantidade de pessoas únicas.
 
-## 🤖 Modos de Operação
+## DEMO e REAL
 
-### Modo Demo (padrão — `DEMO_MODE=true`)
-Usa o modelo `yolov8n.pt` pré-treinado no dataset COCO. Detecta apenas a classe `person`. Como o modelo COCO não possui classes de capacete/colete, **todas as pessoas aparecerão como "SEM CAPACETE"** — ideal para demonstrar a arquitetura e o pipeline completo.
+`DEMO_MODE=true` é o padrão. O modelo COCO detecta pessoas e o motor considera ausentes todos os EPIs exigidos. Com as configurações padrão aparecem SEM CAPACETE / SEM COLETE, inicialmente em âmbar e depois em vermelho. Isso demonstra o fluxo do sistema; não mede a precisão da detecção de EPI.
 
-### Modo Real (`DEMO_MODE=false`)
-Requer um modelo treinado em dataset de EPI. Baixe um modelo PPE no [Roboflow Universe](https://universe.roboflow.com/roboflow-universe-projects/construction-site-safety) e configure `MODEL_PATH` no `.env`.
+Para usar um modelo PPE:
 
----
+1. Defina `DEMO_MODE=false` e `MODEL_PATH` para os pesos treinados.
+2. Configure `PERSON_ID`, `HELMET_ID`, `VEST_ID` e `BOOT_ID` conforme os nomes do próprio modelo. Os valores no `.env.example` são exemplos.
+3. Defina `REQUIRE_HELMET`, `REQUIRE_VEST` e `REQUIRE_BOOT` conforme o cenário. Botas são opcionais por padrão.
 
-## 📊 Métricas para o TCC
+O detector lê `model.names`, valida as classes obrigatórias e ignora classes opcionais incompatíveis. Nomes positivos como `helmet`, `Hardhat`, `Safety Vest` e `capacete` são reconhecidos; classes como `NO-Hardhat` não contam como equipamento presente. Modelos com nomes genéricos precisam de metadados corrigidos. COCO em modo REAL falha com uma mensagem de configuração, evitando interpretar bicicletas/carros como EPI.
 
-### Benchmark de Modelos
-Durante a execução, pressione **`B`** para medir o desempenho. Repita com cada modelo (`yolov8n`, `yolov8s`, `yolov8m`) e preencha a tabela:
+O `.env` é carregado a partir da raiz do projeto, mesmo quando a execução começa em outra pasta. Variáveis do processo prevalecem. Caminhos relativos de modelo, imagens e logs são resolvidos a partir dessa raiz.
 
-| Modelo | Parâmetros | Tempo médio | FPS equiv. | mAP@0.5 |
-|--------|-----------|-------------|-----------|---------|
-| yolov8n | 3.2M | — ms | — | — |
-| yolov8s | 11.2M | — ms | — | — |
-| yolov8m | 25.9M | — ms | — | — |
+## Regras espaciais e confirmação
 
-### Cenários de Teste (Capítulo de Resultados)
+Para cada pessoa, o motor calcula:
 
-| Cenário | Descrição | Resultado Esperado |
-|---------|-----------|-------------------|
-| 1 | 1 pessoa COM capacete | Sem alerta |
-| 2 | 1 pessoa SEM capacete | Alerta gerado |
-| 3 | 2 pessoas (1 com, 1 sem) | Alerta seletivo |
-| 4 | Iluminação baixa | — |
-| 5 | Oclusão parcial | — |
-| 6 | Distância longa | — |
+- **Cabeça:** 30% superiores da bounding box (`HEAD_REGION_RATIO=0.30`). Associa capacete quando `IoU(cabeça, capacete) >= 0.15` (`HELMET_IOU_THRESHOLD`).
+- **Colete:** o centro da caixa do colete deve estar dentro da caixa da pessoa.
+- **Bota, quando exigida:** o centro deve estar nos 25% inferiores da pessoa (`FOOT_REGION_RATIO=0.25`). Uma detecção é suficiente; não há verificação separada dos dois pés.
 
----
+Cada EPI é atribuído a no máximo uma pessoa. Candidatos são ordenados por IoU (capacete) ou proximidade normalizada do centro (colete/bota), com desempate geométrico. Essa associação gulosa é determinística, mas pode errar quando pessoas se sobrepõem.
 
-## 🔬 Metodologia — Motor de Regras Espaciais
+Um rastreamento leve por IoU mantém um contador por pessoa. `FRAMES_TO_CONFIRM=10` exige a mesma combinação de ausências por 10 frames avaliados consecutivos. Conformidade, mudança da combinação ou ausência da pessoa em um frame reiniciam o contador. `TRACK_MAX_MISSED` limita a retenção de IDs; `TRACK_IOU_THRESHOLD` controla a associação entre frames. Os IDs são temporários e podem trocar em cruzamentos, movimento rápido ou oclusão.
 
-```
-Para cada pessoa P detectada no frame:
-│
-├─ 1. REGIÃO DA CABEÇA
-│     Extrai os 30% superiores da bounding box de P
-│     head_box = [x1, y1, x2, y1 + (height × 0.30)]
-│
-├─ 2. ASSOCIAÇÃO DE CAPACETE (IoU-based)
-│     Para cada capacete H detectado:
-│       iou = intersection(head_box, H.bbox) / union(head_box, H.bbox)
-│       Se iou ≥ 0.15 → capacete associado a P ✅
-│
-├─ 3. ASSOCIAÇÃO DE COLETE (centro-point)
-│     Para cada colete V detectado:
-│       Se centro(V) está dentro de bbox(P) → colete OK ✅
-│
-└─ 4. VIOLAÇÃO
-      Se capacete obrigatório E não encontrado → "SEM CAPACETE" ⛔
-      Se colete obrigatório E não encontrado   → "SEM COLETE"   ⛔
-```
+`PersonStatus.is_compliant` informa o resultado espacial atual. `confirmed` informa se a ausência passou pelo filtro temporal. A renderização distingue verde (conforme), âmbar (pendente) e vermelho (confirmado). Apenas confirmados geram eventos.
 
-**Vantagem vs. detecção simples:**
-- Detecção simples: "há um capacete no frame?" → muitos falsos negativos
-- Nossa abordagem: "**esta pessoa específica** tem capacete?" → preciso para N pessoas
+## Evidências e Telegram
 
----
+`ViolationLogger` registra PNG, `logs/violations.json` e log de texto. `SAVE_FRAMES=false` mantém o registro estruturado sem imagem. Nomes de imagem únicos evitam sobrescrita; falhas de gravação são tratadas explicitamente.
 
-## 📱 Configuração do Telegram
+`ALERT_COOLDOWN_SECONDS=300` limita eventos por câmera. O Telegram fica desabilitado enquanto `TELEGRAM_TOKEN` e `TELEGRAM_CHAT_ID` estiverem vazios. Quando configurado, usa um único worker, fila limitada e timeout; a inferência não aguarda o envio. Enfileirar um alerta não garante sua entrega. Nenhum alerta é enviado pelos testes automatizados.
 
-1. Abra o **@BotFather** no Telegram
-2. Digite `/newbot` e siga as instruções
-3. Copie o **TOKEN** gerado
-4. Inicie uma conversa com o seu bot
-5. Acesse `https://api.telegram.org/bot<TOKEN>/getUpdates`
-6. Copie o valor `"id"` do campo `"chat"` → esse é o **CHAT_ID**
+## Estrutura e interfaces
 
-```env
-TELEGRAM_TOKEN=1234567890:ABCdefGHIjklMNOpqrSTUvwxYZ
-TELEGRAM_CHAT_ID=987654321
+- `config.py`: ambiente, classes, captura e parâmetros espaciais.
+- `src/ai/detector.py`: `Detection`, `FrameResult`, `EPIDetector`, warm-up e benchmark.
+- `src/rules/ppe_rules.py`: associação, `PersonStatus`, debounce e desenho.
+- `src/camera/capture.py`: `VideoCapture`, `IPCameraStream` e FPS.
+- `src/alerts/`: persistência e Telegram assíncrono.
+- `main.py`: execução principal e atalhos.
+- `tests/`: testes automatizados sem câmera e sem mensagens reais.
+
+`PPEDetector` e `check_violation()` permanecem como adaptadores para a interface antiga. Para instalar também as interfaces desktop/dashboard, use `python -m pip install -r requirements.txt`. O dashboard industrial utiliza seu banco SQLite próprio; o JSON do pipeline principal é utilizado pela interface `ppe_monitor_app.py`.
+
+O servidor `main_industrial.py` também usa o motor espacial, com estado independente por câmera e avaliação apenas de frames novos. Seu adaptador mantém a persistência SQLite e o cooldown do fluxo industrial. O cadastro e o banco são inicializados pelo dashboard: execute `streamlit run src/dashboard/streamlit_app.py` e, em outro terminal, `python main_industrial.py`.
+
+## Validação do TCC
+
+```text
+python -m pip install pytest
+python -m pytest
 ```
 
----
+A descoberta de testes se limita a `tests/`, sem executar os scripts de diagnóstico de câmera da raiz. Veja `VALIDATION.md` para os resultados obtidos nesta implementação.
 
-## 🛠️ Solução de Problemas
+O benchmark informa latência de inferência e FPS equivalente; não calcula mAP nem representa o FPS completo com captura, desenho e persistência. Valide separadamente com imagens PPE anotadas: precisão/recall por classe, mAP, taxa de falsos alertas por pessoa e desempenho por iluminação, distância e oclusão. Os limiares 0.30/0.15 são os da metodologia fornecida, não resultados de calibração. Pessoa agachada, cabeça parcialmente fora do frame e pés não visíveis podem gerar falsas ausências.
 
-| Problema | Solução |
-|----------|---------|
-| `ModuleNotFoundError: config` | Execute sempre da raiz: `python main.py` |
-| Câmera não encontrada | Mude `CAMERA_INDEX=1` (ou 2) no `.env` |
-| Janela não abre | Verifique `SHOW_VIDEO=true` no `.env` |
-| Detecção muito lenta | Use `yolov8n.pt` e reduza `FRAME_WIDTH=320` |
-| Muitos falsos positivos | Aumente `CONFIDENCE=0.60` no `.env` |
-| Telegram não envia | Verifique TOKEN e CHAT_ID; teste com `test_connection()` |
+## Referências técnicas
 
----
-
-## 📚 Referências
-
-- Ultralytics YOLOv8: https://docs.ultralytics.com
-- OpenCV: https://docs.opencv.org
-- Streamlit: https://docs.streamlit.io
-- Dataset PPE: https://universe.roboflow.com/roboflow-universe-projects/construction-site-safety
-- COCO Dataset: https://cocodataset.org
-
----
-
-*TCC — Sistema Inteligente de Monitoramento de EPI*
-*Utilizando Visão Computacional e IA em Tempo Real*
+- [Ultralytics: modo Predict e estrutura Results](https://docs.ultralytics.com/modes/predict/)
+- [Ultralytics: modelos YOLOv8](https://docs.ultralytics.com/models/yolov8/)
+- [OpenCV: VideoCapture](https://docs.opencv.org/4.x/d8/dfe/classcv_1_1VideoCapture.html)
+- [Telegram Bot API](https://core.telegram.org/bots/api)
