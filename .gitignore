@@ -1,72 +1,44 @@
-# ==========================================
-# Ambientes Virtuais (Virtual Environments)
-# ==========================================
 .venv/
 venv/
-env/
-ENV/
-bin/
-lib/
-include/
-share/
-
-# ==========================================
-# Caches de Execução do Python
-# ==========================================
-**/__pycache__/
-*.pyc
-*.pyo
-*.pyd
+__pycache__/
+*.py[cod]
 .pytest_cache/
+pytest-cache-files-*/
+.test-tmp-*/
+Ultralytics/
 .mypy_cache/
-
-# ==========================================
-# Arquivos de Configuração Local e Segredos
-# ==========================================
+.ruff_cache/
+.cache/
+*.egg-info/
+build/
+dist/
 .env
-.env.local
-.flaskenv
-
-# ==========================================
-# Banco de Dados Local (SQLite)
-# ==========================================
-*.db
-*.sqlite3
-# Ignora a pasta inteira de logs gerados, mantendo apenas a estrutura se necessário
-logs/
-
-# ==========================================
-# Pesos do YOLO / Inteligência Artificial
-# ==========================================
-# Ignora arquivos de pesos grandes para não travar o upload do Git
+.env.*
+!.env.example
+.streamlit/secrets.toml
 *.pt
+*.pth
 *.onnx
 *.engine
-
-# ==========================================
-# Evidências, Imagens e Mídias de Teste
-# ==========================================
-violations/
-*.jpg
-*.jpeg
-*.png
+*.part
+*.cache
+models/*.export.json
+*.bin
+*_openvino_model/
 *.mp4
 *.avi
-
-# ==========================================
-# IDEs e Editores de Código
-# ==========================================
+*.mov
+*.mkv
+data/datasets/
+data/uploads/
+runs/
+reports/
+logs/
+violations/
+*.db
+*.sqlite3
 .vscode/
 .idea/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.swp
-
-# ==========================================
-# Sistema Operacional
-# ==========================================
+.DS_Store
 Thumbs.db
 Desktop.ini
-.DS_Store

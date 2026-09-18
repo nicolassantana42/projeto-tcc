@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "safeguard-epi"
+version = "2.0.0"
+description = "Monitoramento acadêmico de EPI com visão computacional"
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+dynamic = ["dependencies"]
+
+[project.optional-dependencies]
+dev = ["pytest==8.4.2"]
+onnx = ["onnx==1.17.0", "onnxruntime==1.22.1"]
+openvino = ["onnx==1.17.0", "openvino==2025.4.1", "nncf==2.19.0"]
+tensorrt = ["onnx==1.17.0", "tensorrt>=10,<11,!=10.1.0"]
+
+[project.scripts]
+safeguard = "safeguard.cli:main"
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["safeguard*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra"

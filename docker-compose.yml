@@ -1,0 +1,15 @@
+services:
+  dashboard:
+    build: .
+    ports:
+      - "127.0.0.1:8501:8501"
+    volumes:
+      - ./models:/app/models
+      - ./reports:/app/reports
+      - ./data:/app/data:ro
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    # Webcam USB: em Linux, adicione devices: ["/dev/video0:/dev/video0"].
+    # Docker Desktop: prefira upload ou RTSP; USB não é automático.

@@ -1,0 +1,15 @@
+# Copie para ppe.yaml, prepare imagens/labels YOLO e ajuste path + names.
+# Caminhos relativos são resolvidos a partir deste YAML pelo CLI SafeGuard.
+# Não há imagens, anotações nem pesos EPI distribuídos neste exemplo.
+path: ./datasets/ppe
+train: images/train
+val: images/val
+test: images/test
+# Os IDs devem corresponder EXATAMENTE às anotações e aos pesos treinados.
+# Exemplo de taxonomia apenas: substitua pelas classes reais do seu dataset.
+names:
+  0: person
+  1: helmet
+  2: vest
+  3: no_helmet
+  4: no_vest
