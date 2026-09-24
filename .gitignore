@@ -23,6 +23,7 @@ dist/
 *.part
 *.cache
 models/*.export.json
+models/**/*.export.json
 *.bin
 *_openvino_model/
 *.mp4

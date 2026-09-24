@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import Any, Iterable, Mapping
 from zipfile import ZIP_DEFLATED, ZipFile
@@ -26,6 +27,9 @@ def frame_record(
         "pipeline_ms": None if illustrative else float(result.pipeline_ms),
         "counts": {str(key): int(value) for key, value in result.counts.items()},
         "alerts": [str(alert) for alert in result.alerts],
+        "assessments": [asdict(item) for item in getattr(result, "assessments", [])],
+        "stage_timings_ms": {} if illustrative else getattr(result, "stage_timings_ms", {}),
+        "ppe_executed": bool(getattr(result, "ppe_executed", False)),
         "detections": [
             {
                 "class_id": int(item.class_id),

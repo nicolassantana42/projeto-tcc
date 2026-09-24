@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
+import cv2
 
-from safeguard.capture import CaptureError, VideoSource
+from safeguard.capture import CaptureError, ImageSource, VideoSource, open_source
 
 
 class FakeCapture:
@@ -103,3 +104,88 @@ def test_capture_release_even_when_processing_raises(monkeypatch):
         with VideoSource("0"):
             raise RuntimeError("processing failed")
     assert capture.released
+
+
+def test_image_source_reads_unicode_filename_once_and_can_reopen(tmp_path):
+    path = tmp_path / "inspeção_工人.PNG"
+    frame = np.full((20, 30, 3), 123, np.uint8)
+    success, encoded = cv2.imencode(".png", frame)
+    assert success
+    encoded.tofile(str(path))
+    source = open_source(str(path))
+    assert isinstance(source, ImageSource)
+    with source:
+        np.testing.assert_array_equal(source.read(), frame)
+        assert source.timestamp_seconds == 0
+        assert source.read() is None
+    with pytest.raises(CaptureError, match="não foi aberta"):
+        source.read()
+    with source:
+        np.testing.assert_array_equal(source.read(), frame)
+
+
+@pytest.mark.parametrize("payload", [b"", b"not an image"])
+def test_image_source_rejects_empty_or_corrupt_data(tmp_path, payload):
+    path = tmp_path / "bad.jpg"
+    path.write_bytes(payload)
+    source = ImageSource(str(path))
+    with pytest.raises(CaptureError, match="corrompida"):
+        source.open()
+    with pytest.raises(CaptureError, match="não foi aberta"):
+        source.read()
+
+
+def test_missing_image_is_a_clear_capture_error(tmp_path):
+    with pytest.raises(CaptureError, match="ler a imagem"):
+        ImageSource(str(tmp_path / "missing.png")).open()
+
+
+def test_remote_image_suffix_does_not_select_local_image_loader():
+    source = open_source("https://camera.example/snapshot.png")
+    assert isinstance(source, VideoSource) and source.is_stream
+
+
+class TimedCapture(FakeCapture):
+    def __init__(self, positions, fps):
+        super().__init__([np.zeros((20, 30, 3), np.uint8)] * len(positions), total=len(positions))
+        self.positions, self.fps = iter(positions), fps
+
+    def get(self, key):
+        if key == cv2.CAP_PROP_FRAME_COUNT:
+            return self.total
+        if key == cv2.CAP_PROP_FPS:
+            return self.fps
+        if key == cv2.CAP_PROP_POS_MSEC:
+            value = next(self.positions)
+            if isinstance(value, Exception):
+                raise value
+            return value
+        return 0
+
+
+@pytest.mark.parametrize("positions,fps,expected", [
+    ([0, 100, 200], 30, [0., .1, .2]),
+    ([0, 0, 0], 25, [0., .04, .08]),
+    ([float("nan"), -1, None], 20, [0., .05, .1]),
+    ([0, cv2.error("unsupported"), 0], 10, [0., .1, .2]),
+    ([0, 100, 50, 0], 10, [0., .1, .2, .3]),
+    ([0, 0, 100], 0, [0., None, .1]),
+    ([float("nan"), float("nan")], None, [None, None]),
+])
+def test_file_timestamps_use_media_clock_or_fps_fallback(monkeypatch, tmp_path, positions, fps, expected):
+    capture = TimedCapture(positions, fps)
+    monkeypatch.setattr("safeguard.capture.cv2.VideoCapture", lambda *_: capture)
+    timestamps = []
+    with VideoSource(_video(tmp_path)) as source:
+        for _ in positions:
+            source.read()
+            timestamps.append(source.timestamp_seconds)
+    assert timestamps == expected and capture.released
+
+
+def test_live_camera_leaves_timestamp_none_for_monotonic_event_clock(monkeypatch):
+    capture = FakeCapture([np.zeros((20, 30, 3), np.uint8)])
+    monkeypatch.setattr("safeguard.capture.cv2.VideoCapture", lambda *_: capture)
+    with VideoSource(0) as source:
+        source.read()
+        assert source.timestamp_seconds is None

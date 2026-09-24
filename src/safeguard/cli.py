@@ -34,6 +34,42 @@ def parser() -> argparse.ArgumentParser:
     cli.add_argument("--debug", action="store_true", help="mostrar traceback de diagnóstico")
     commands = cli.add_subparsers(dest="command", required=True)
 
+    detect = commands.add_parser("detect", help="pessoa → segundo YOLO de EPI, em imagem, vídeo ou câmera")
+    detect.add_argument("--source", type=source_value, required=True)
+    detect.add_argument("--person-model", default="models/yolo11n.pt")
+    detect.add_argument("--ppe-model", default="models/ppe/best.pt")
+    detect.add_argument("--device", default="auto")
+    detect.add_argument("--imgsz", type=positive, default=640)
+    detect.add_argument("--confidence", type=probability, default=.4)
+    detect.add_argument("--iou", type=probability, default=.45)
+    detect.add_argument("--max-frames", type=positive, default=300)
+    detect.add_argument("--output", default="runs/detection/frames.jsonl")
+    detect.add_argument("--snapshot")
+    detect.add_argument("--show", action="store_true", help="janela simples OpenCV; Q encerra")
+    detect.add_argument("--save-events", action="store_true")
+    detect.add_argument("--camera-name", default="Câmera 01")
+    detect.add_argument("--location", default="Local não informado")
+    detect.add_argument("--event-directory", default="reports/occurrences")
+
+    audit = commands.add_parser("audit-data", help="verificar rótulos, imagens e duplicatas entre splits")
+    audit.add_argument("--data", required=True)
+    audit.add_argument("--require-test", action="store_true")
+    audit.add_argument("--allow-background", action="store_true")
+    audit.add_argument("--output", default="runs/dataset-audit.json")
+
+    evaluate = commands.add_parser("evaluate-cascade", help="TP/FP/FN e latência do fluxo completo, sem confundir com mAP")
+    evaluate.add_argument("--data", required=True)
+    evaluate.add_argument("--person-model", default="models/yolo11n.pt")
+    evaluate.add_argument("--ppe-model", default="models/ppe/best.pt")
+    evaluate.add_argument("--device", default="auto")
+    evaluate.add_argument("--imgsz", type=positive, default=640)
+    evaluate.add_argument("--split", choices=("val", "test"), default="test")
+    evaluate.add_argument("--confidence", type=probability, default=.4)
+    evaluate.add_argument("--iou", type=probability, default=.45)
+    evaluate.add_argument("--match-iou", type=probability, default=.5)
+    evaluate.add_argument("--max-images", type=positive)
+    evaluate.add_argument("--output", default="runs/cascade-evaluation.json")
+
     def common(command: argparse.ArgumentParser) -> None:
         command.add_argument("--model", default="models/yolo11n.pt", help="pesos .pt ou artefato exportado local")
         command.add_argument("--device", default="auto", help="auto, cpu, cuda:0 ou mps")
@@ -81,6 +117,7 @@ def parser() -> argparse.ArgumentParser:
 
     benchmark = commands.add_parser("benchmark", help="warmup e latências p50/p95 medidas localmente")
     common(benchmark)
+    benchmark.add_argument("--ppe-model", help="medir a cascata completa; --model passa a ser o detector de pessoas")
     benchmark.add_argument("--source", type=source_value, required=True)
     benchmark.add_argument("--confidence", type=probability, default=0.4)
     benchmark.add_argument("--iou", type=probability, default=0.45)
@@ -97,19 +134,28 @@ def parser() -> argparse.ArgumentParser:
 def run_inference(args: argparse.Namespace) -> dict:
     import cv2
 
-    from safeguard.capture import VideoSource
+    from safeguard.capture import open_source
     from safeguard.config import InferenceConfig
     from safeguard.inference import YOLODetector
     from safeguard.pipeline import Pipeline
     from safeguard.rendering import render_frame
 
+    if args.ppe:
+        from safeguard.runner import run_detection
+        return run_detection(source=args.source, ppe_model=args.model, device=args.device,
+                             imgsz=args.imgsz, confidence=args.confidence, iou=args.iou,
+                             max_frames=args.max_frames, output=args.output, snapshot=args.snapshot)
+
+    from safeguard.runner import _output_paths
+    if args.snapshot and Path(args.snapshot).suffix.lower() not in {".jpg", ".jpeg", ".png"}:
+        raise ml.WorkflowError("Snapshot precisa ter extensão .jpg ou .png.")
+    destination, snapshot = _output_paths(args.source, args.model, args.model, args.output, args.snapshot)
     detector = YOLODetector(InferenceConfig(model_path=args.model, device=args.device,
                                           confidence=args.confidence, iou=args.iou, imgsz=args.imgsz)).load()
     pipeline = Pipeline(detector, demo_mode=not args.ppe)
-    destination = Path(args.output)
     destination.parent.mkdir(parents=True, exist_ok=True)
     count, last, totals = 0, None, {}
-    with VideoSource(args.source) as source, destination.open("w", encoding="utf-8") as stream:
+    with open_source(args.source) as source, destination.open("w", encoding="utf-8") as stream:
         for _ in range(args.max_frames):
             frame = source.read()
             if frame is None:
@@ -126,13 +172,12 @@ def run_inference(args: argparse.Namespace) -> dict:
                 totals[label] = totals.get(label, 0) + amount
     if last is None:
         raise ml.WorkflowError("A fonte não produziu frames válidos.")
-    if args.snapshot:
-        snapshot = Path(args.snapshot)
-        if snapshot.suffix.lower() not in {".jpg", ".jpeg", ".png"}:
-            raise ml.WorkflowError("Snapshot precisa ter extensão .jpg ou .png.")
+    if snapshot is not None:
         snapshot.parent.mkdir(parents=True, exist_ok=True)
-        if not cv2.imwrite(str(snapshot), render_frame(last)):
+        success, encoded = cv2.imencode(snapshot.suffix, render_frame(last))
+        if not success:
             raise ml.WorkflowError(f"Não foi possível gravar snapshot em {snapshot}.")
+        encoded.tofile(str(snapshot))
     return {"frames": count, "device": detector.device, "output": str(destination),
             "detections_accumulated": totals,
             "count_note": "Contagens acumuladas por frame; não representam pessoas/objetos únicos.",
@@ -145,7 +190,24 @@ def main(argv: list[str] | None = None) -> int:
         values = vars(args).copy()
         command = values.pop("command")
         values.pop("debug")
-        if command == "infer":
+        if command == "detect":
+            from safeguard.runner import run_detection
+            result = run_detection(**values)
+        elif command == "audit-data":
+            from safeguard.dataset_audit import audit_dataset
+            result = audit_dataset(**values)
+            summary = {"valid": result["valid"], "summary": result["summary"],
+                       "class_names": result["class_names"], "report": str(args.output),
+                       "errors_sample": result["errors"][:20], "warnings_sample": result["warnings"][:20]}
+            print(json.dumps(summary, ensure_ascii=False, indent=2))
+            return 0 if result["valid"] else 1
+        elif command == "evaluate-cascade":
+            from safeguard.factory import create_cascade
+            from safeguard.evaluation import evaluate_cascade
+            pipeline = create_cascade(values.pop("person_model"), values.pop("ppe_model"),
+                                      values.pop("device"), values.pop("imgsz"), values["confidence"], values["iou"])
+            result = evaluate_cascade(pipeline, **values)
+        elif command == "infer":
             result = run_inference(args)
         elif command == "download":
             result = {"model": str(ml.download_model(values.pop("model"), **values)),
@@ -156,7 +218,9 @@ def main(argv: list[str] | None = None) -> int:
                          "export": ml.export_model, "benchmark": ml.benchmark_model}[command]
             result = operation(**values)
         # Dense curves remain in the report, keeping terminal logs readable.
-        printable = {key: value for key, value in result.items() if key not in {"curves", "confusion_matrix"}}
+        printable = {key: value for key, value in result.items() if key not in {"curves", "confusion_matrix", "errors"}}
+        if "errors" in result:
+            printable["error_records_in_report"] = len(result["errors"])
         print(json.dumps(printable, ensure_ascii=False, indent=2, default=str))
         return 0
     except KeyboardInterrupt:

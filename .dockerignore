@@ -13,6 +13,7 @@ reports
 tests
 docs
 .env*
+.streamlit/secrets.toml
 *.mp4
 *.pt
 *.onnx

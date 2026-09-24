@@ -26,4 +26,16 @@ def render_frame(result: FrameResult) -> np.ndarray:
         label_x = max(0, min(x1, width - text_width - 8))
         cv2.rectangle(canvas, (label_x, max(0, text_y - text_height - 4)), (min(width - 1, label_x + text_width + 8), min(height - 1, text_y + baseline)), color, -1)
         cv2.putText(canvas, text, (label_x + 4, text_y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (20, 26, 32), 1, cv2.LINE_AA)
+    status_labels = {"ok": "EPI detectado", "unsafe": "NAO SEGURO - revisar", "uncertain": "INCONCLUSIVO"}
+    status_colors = {"ok": (65, 200, 70), "unsafe": (50, 55, 240), "uncertain": (30, 205, 245)}
+    for assessment in result.assessments:
+        x1, y1, x2, y2 = np.clip(assessment.person.bbox, [0, 0, 0, 0], [width - 1, height - 1, width - 1, height - 1]).astype(int)
+        color = status_colors[assessment.status]
+        cv2.rectangle(canvas, (x1, y1), (x2, y2), color, thickness + 1)
+        text = f"P{assessment.index} {status_labels[assessment.status]}"
+        text_width = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, font_scale, 1)[0][0]
+        x = max(0, min(x1, width - text_width - 4))
+        y = max(16, min(height - 4, y2 - 8))
+        cv2.putText(canvas, text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0), 3, cv2.LINE_AA)
+        cv2.putText(canvas, text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, color, 1, cv2.LINE_AA)
     return canvas

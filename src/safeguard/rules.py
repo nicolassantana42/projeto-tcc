@@ -1,6 +1,7 @@
 """Heurística explicável de EPI; não constitui avaliação de conformidade."""
 
 import unicodedata
+from dataclasses import dataclass
 
 from .types import Detection
 
@@ -23,6 +24,23 @@ def _kind(label: str) -> str | None:
     return next((kind for kind, labels in ALIASES.items() if normalized in labels), None)
 
 
+@dataclass(frozen=True)
+class PersonAssessment:
+    """One spatial observation; index is a frame index, never an identity."""
+
+    person: Detection
+    index: int
+    missing: tuple[str, ...]
+
+
+def person_detections(detections: list[Detection]) -> list[Detection]:
+    return sorted((item for item in detections if _kind(item.label) == "person"), key=lambda item: item.bbox)
+
+
+def supports_ppe(names: dict[int, str] | None) -> bool:
+    return bool(names) and {"person", "helmet", "vest"}.issubset({_kind(label) for label in names.values()})
+
+
 def _assign(gear: Detection, people: list[Detection], kind: str) -> int | None:
     gx1, gy1, gx2, gy2 = gear.bbox
     cx, cy = (gx1 + gx2) / 2, (gy1 + gy2) / 2
@@ -42,6 +60,28 @@ def _assign(gear: Detection, people: list[Detection], kind: str) -> int | None:
     return min(candidates)[1] if candidates else None
 
 
+def assess_people(detections: list[Detection], names: dict[int, str] | None) -> list[PersonAssessment]:
+    """Structured spatial associations, unavailable for incomplete label sets.
+
+    Absence is a visual hypothesis, not a verified safety violation. Negative
+    classes alone are insufficient; the model must detect all positive classes.
+    """
+    if not supports_ppe(names):
+        return []
+    people = person_detections(detections)
+    present = [set() for _ in people]
+    for detection in detections:
+        kind = _kind(detection.label)
+        if kind in {"helmet", "vest"}:
+            person_index = _assign(detection, people, kind)
+            if person_index is not None:
+                present[person_index].add(kind)
+    return [
+        PersonAssessment(person, index, tuple(kind for kind in ("helmet", "vest") if kind not in present[index - 1]))
+        for index, person in enumerate(people, start=1)
+    ]
+
+
 def assess_ppe(detections: list[Detection], names: dict[int, str], demo_mode: bool = True) -> list[str]:
     """Associate each helmet/vest to one person before suggesting absence.
 
@@ -50,20 +90,11 @@ def assess_ppe(detections: list[Detection], names: dict[int, str], demo_mode: bo
     """
     if demo_mode:
         return []
-    available = {_kind(label) for label in names.values()}
-    if not {"person", "helmet", "vest"}.issubset(available):
+    if not supports_ppe(names):
         return ["Análise de EPI indisponível: o modelo precisa ter classes de pessoa, capacete e colete. Use o modo demonstração para modelos COCO."]
-    people = sorted((item for item in detections if _kind(item.label) == "person"), key=lambda item: item.bbox)
-    present = [set() for _ in people]
-    for detection in detections:
-        kind = _kind(detection.label)
-        if kind in {"helmet", "vest"}:
-            person_index = _assign(detection, people, kind)
-            if person_index is not None:
-                present[person_index].add(kind)
     alerts = []
-    for index, equipment in enumerate(present, start=1):
-        missing = [label for kind, label in (("helmet", "capacete"), ("vest", "colete")) if kind not in equipment]
+    for assessment in assess_people(detections, names):
+        missing = [label for kind, label in (("helmet", "capacete"), ("vest", "colete")) if kind in assessment.missing]
         if missing:
-            alerts.append(f"Pessoa {index}: possível ausência de {' e '.join(missing)} (revisão visual necessária).")
+            alerts.append(f"Pessoa {assessment.index}: possível ausência de {' e '.join(missing)} (revisão visual necessária).")
     return alerts

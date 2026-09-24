@@ -1,0 +1,33 @@
+{
+  "description": "Treino local experimental YOLO11n em Construction-PPE, 10 épocas. Não validado no ambiente real do TCC.",
+  "weights_sha256": "aab17d43f5de6d62216c80110c7214adeda5e52d210f9f9a0fb910e983709a01",
+  "training_run": "runs/train/ppe_tcc",
+  "initial_weights_sha256": "0ebbc80d4a7680d14987a577cd21342b65ecfd94632bd9a8da63ae6417644ee1",
+  "dataset": "https://docs.ultralytics.com/datasets/detect/construction-ppe/",
+  "config": {
+    "model": "models/yolo11n.pt",
+    "data": "C:\\projeto-tcc\\projeto-tcc\\data\\construction-ppe.yaml",
+    "epochs": 10,
+    "imgsz": 416,
+    "batch": 8,
+    "workers": 0,
+    "seed": 42,
+    "amp": false
+  },
+  "test_metrics": {
+    "metrics/precision(B)": 0.7645421636832359,
+    "metrics/recall(B)": 0.4191830150108729,
+    "metrics/mAP50(B)": 0.4799038693840389,
+    "metrics/mAP50-95(B)": 0.22440380573332042,
+    "fitness": 0.22440380573332042,
+    "mAP50": 0.4799038693840389,
+    "mAP50_95": 0.22440380573332042,
+    "precision": 0.7645421636832359,
+    "recall": 0.4191830150108729
+  },
+  "limitations": [
+    "Sem classe no_vest; falta de colete não é inferida da ausência de detecção.",
+    "Classe no_helmet com baixo recall; não usar como fiscalização automática.",
+    "Resultado não reproduz o mAP 0.841 do artigo; arquitetura YOLO11 difere de YOLOv5."
+  ]
+}

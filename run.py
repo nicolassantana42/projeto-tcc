@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parent
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--no-download", action="store_true", help="Abre a prévia sem baixar pesos COCO")
+    parser.add_argument("--no-download", action="store_true", help="Abre o dashboard sem baixar pesos COCO")
     parser.add_argument("--install-only", action="store_true")
     parser.add_argument("--port", type=int, default=8501)
     args = parser.parse_args()

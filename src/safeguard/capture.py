@@ -1,6 +1,7 @@
 """Captura isolada com EOF finito e falhas explícitas de câmera/rede."""
 
 from pathlib import Path
+import math
 import cv2
 import numpy as np
 
@@ -30,10 +31,13 @@ class VideoSource:
         self._capture = None
         self._frames_read = 0
         self._frame_count = 0.0
+        self._fps = 0.0
+        self.timestamp_seconds = None
 
     def open(self) -> "VideoSource":
         self.close()
         self._frames_read = 0
+        self.timestamp_seconds = None
         if self.is_file and not Path(self.source).is_file():
             raise CaptureError(f"Arquivo de vídeo não encontrado: {self.source}")
         try:
@@ -55,7 +59,8 @@ class VideoSource:
                     self._capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
                 except (AttributeError, cv2.error):
                     pass
-            self._frame_count = float(self._capture.get(cv2.CAP_PROP_FRAME_COUNT)) if self.is_file else 0.0
+            self._frame_count = self._property(cv2.CAP_PROP_FRAME_COUNT) if self.is_file else 0.0
+            self._fps = self._property(cv2.CAP_PROP_FPS) if self.is_file else 0.0
         except Exception as exc:
             self.close()
             if isinstance(exc, CaptureError):
@@ -63,6 +68,13 @@ class VideoSource:
             # Native OpenCV error strings can contain credentials from RTSP URLs.
             raise CaptureError("Falha ao abrir a fonte de vídeo. Verifique OpenCV, permissões e o endereço informado.") from exc
         return self
+
+    def _property(self, key: int) -> float:
+        """Unavailable optional codec metadata must not stop valid frames."""
+        try:
+            return float(self._capture.get(key))
+        except (TypeError, ValueError, OverflowError, cv2.error):
+            return math.nan
 
     def read(self) -> np.ndarray | None:
         if self._capture is None:
@@ -73,6 +85,15 @@ class VideoSource:
             raise CaptureError("Falha ao ler a fonte de vídeo. Tente reconectar.") from exc
         if success and frame is not None and frame.size:
             self._frames_read += 1
+            if self.is_file:
+                position = self._property(cv2.CAP_PROP_POS_MSEC) / 1000
+                fallback = (self._frames_read - 1) / self._fps if math.isfinite(self._fps) and self._fps > 0 else None
+                if math.isfinite(position) and position >= 0 and (self._frames_read == 1 or position > (self.timestamp_seconds or 0)):
+                    self.timestamp_seconds = position
+                elif fallback is not None:
+                    self.timestamp_seconds = max(self.timestamp_seconds or 0, fallback)
+                else:
+                    self.timestamp_seconds = None
             return frame
         if not self.is_file:
             raise CaptureError("Webcam/stream desconectado ou sem quadros. Verifique a fonte e tente reconectar.")
@@ -92,3 +113,53 @@ class VideoSource:
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
         self.close()
+
+
+IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff"}
+
+
+class ImageSource:
+    """A still image is exactly one observation, never simulated video time."""
+
+    is_file = True
+    is_stream = False
+    timestamp_seconds = 0.0
+
+    def __init__(self, source: str):
+        self.source = str(source)
+        self._frame = None
+        self._opened = False
+
+    def open(self):
+        self.close()
+        try:
+            raw = np.fromfile(self.source, dtype=np.uint8)
+            frame = cv2.imdecode(raw, cv2.IMREAD_COLOR) if raw.size else None
+        except (OSError, cv2.error, ValueError) as error:
+            raise CaptureError("Não foi possível ler a imagem. Verifique o arquivo e as permissões.") from error
+        if frame is None or not frame.size:
+            raise CaptureError("Imagem vazia, corrompida ou em formato não suportado.")
+        self._frame, self._opened = frame, True
+        return self
+
+    def read(self):
+        if not self._opened:
+            raise CaptureError("A imagem ainda não foi aberta.")
+        frame, self._frame = self._frame, None
+        return frame
+
+    def close(self):
+        self._frame, self._opened = None, False
+
+    def __enter__(self):
+        return self.open()
+
+    def __exit__(self, *args):
+        self.close()
+
+
+def open_source(source: int | str):
+    """Choose still image or video capture without opening the resource yet."""
+    if isinstance(source, str) and Path(source).suffix.lower() in IMAGE_SUFFIXES and "://" not in source:
+        return ImageSource(source)
+    return VideoSource(source)

@@ -1,7 +1,11 @@
 """Objetos de domínio que não dependem de PyTorch ou Ultralytics."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 import numpy as np
+
+if TYPE_CHECKING:
+    from .detection import PersonPPEAssessment
 
 
 @dataclass(frozen=True)
@@ -21,3 +25,6 @@ class FrameResult:
     inference_ms: float
     pipeline_ms: float
     frame_index: int
+    assessments: list["PersonPPEAssessment"] = field(default_factory=list)
+    stage_timings_ms: dict[str, float] = field(default_factory=dict)
+    ppe_executed: bool = False

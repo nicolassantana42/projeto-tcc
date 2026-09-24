@@ -1,0 +1,1418 @@
+{
+  "date": "2026-09-23",
+  "purpose": "Experimento inicial público de detecção; não comprova conformidade por pessoa ou generalização in loco.",
+  "dataset_source": "https://docs.ultralytics.com/datasets/detect/construction-ppe/",
+  "dataset_zip_sha256": "bef8dcb599aa4e9d9f5e602cb6fa7143d3c84d7f6a0ff40463d7f2a4c2632ccc",
+  "dataset_audit": {
+    "valid": true,
+    "summary": {
+      "images": 1416,
+      "valid_images": 1416,
+      "instances": 11521,
+      "background_images": 0,
+      "missing_labels": 0,
+      "errors": 0,
+      "warnings": 0
+    },
+    "leakage": []
+  },
+  "training": {
+    "kind": "training",
+    "environment": {
+      "timestamp_utc": "2026-09-23T12:22:01.632329+00:00",
+      "python": "3.12.14",
+      "platform": "Windows-11-10.0.26200-SP0",
+      "processor": "Intel64 Family 6 Model 186 Stepping 3, GenuineIntel",
+      "device": "cpu",
+      "versions": {
+        "ultralytics": "8.3.203",
+        "torch": "2.8.0",
+        "numpy": "2.2.6",
+        "onnxruntime": "1.22.1",
+        "openvino": "2025.4.1",
+        "nncf": "2.19.0",
+        "tensorrt": null
+      }
+    },
+    "config": {
+      "model": "models/yolo11n.pt",
+      "data": "C:\\projeto-tcc\\projeto-tcc\\data\\construction-ppe.yaml",
+      "epochs": 10,
+      "imgsz": 416,
+      "batch": 8,
+      "workers": 0,
+      "seed": 42,
+      "amp": false
+    },
+    "metrics": {
+      "metrics/precision(B)": 0.6218487902101958,
+      "metrics/recall(B)": 0.5227389793145888,
+      "metrics/mAP50(B)": 0.531417649369711,
+      "metrics/mAP50-95(B)": 0.2573071142634291,
+      "fitness": 0.2573071142634291
+    },
+    "per_class": [
+      {
+        "class_id": 0,
+        "name": "helmet",
+        "instances": 201,
+        "evaluated": true,
+        "precision": 0.7968606145962234,
+        "recall": 0.7761194029850746,
+        "mAP50": 0.8108852737074134,
+        "mAP50_95": 0.42856044202656607
+      },
+      {
+        "class_id": 1,
+        "name": "gloves",
+        "instances": 136,
+        "evaluated": true,
+        "precision": 0.7333094595221,
+        "recall": 0.727852966248936,
+        "mAP50": 0.753665960624684,
+        "mAP50_95": 0.3518456630073025
+      },
+      {
+        "class_id": 2,
+        "name": "vest",
+        "instances": 171,
+        "evaluated": true,
+        "precision": 0.724064285655046,
+        "recall": 0.8128654970760234,
+        "mAP50": 0.8192909196231912,
+        "mAP50_95": 0.48544504837478397
+      },
+      {
+        "class_id": 3,
+        "name": "boots",
+        "instances": 151,
+        "evaluated": true,
+        "precision": 0.6958404905336885,
+        "recall": 0.7284768211920529,
+        "mAP50": 0.7572228952397192,
+        "mAP50_95": 0.4103144454550505
+      },
+      {
+        "class_id": 4,
+        "name": "goggles",
+        "instances": 47,
+        "evaluated": true,
+        "precision": 0.7481945636863743,
+        "recall": 0.723404255319149,
+        "mAP50": 0.7417067494629159,
+        "mAP50_95": 0.3204402232301141
+      },
+      {
+        "class_id": 5,
+        "name": "none",
+        "instances": 81,
+        "evaluated": true,
+        "precision": 0.5694047667816077,
+        "recall": 0.5555555555555556,
+        "mAP50": 0.520300735501871,
+        "mAP50_95": 0.20826460837072883
+      },
+      {
+        "class_id": 6,
+        "name": "Person",
+        "instances": 239,
+        "evaluated": true,
+        "precision": 0.6932578943103043,
+        "recall": 0.8786610878661087,
+        "mAP50": 0.8369134637523734,
+        "mAP50_95": 0.44824797891957646
+      },
+      {
+        "class_id": 7,
+        "name": "no_helmet",
+        "instances": 45,
+        "evaluated": true,
+        "precision": 0.40380890335842207,
+        "recall": 0.35555555555555557,
+        "mAP50": 0.3418377127445132,
+        "mAP50_95": 0.11024258996372922
+      },
+      {
+        "class_id": 8,
+        "name": "no_goggle",
+        "instances": 41,
+        "evaluated": true,
+        "precision": 0.23235735807571972,
+        "recall": 0.04878048780487805,
+        "mAP50": 0.14771093016157408,
+        "mAP50_95": 0.03511312610679103
+      },
+      {
+        "class_id": 9,
+        "name": "no_gloves",
+        "instances": 56,
+        "evaluated": true,
+        "precision": 0.24323835579266687,
+        "recall": 0.14285714285714285,
+        "mAP50": 0.11071856905662389,
+        "mAP50_95": 0.029132995440956665
+      },
+      {
+        "class_id": 10,
+        "name": "no_boots",
+        "instances": 4,
+        "evaluated": true,
+        "precision": 1.0,
+        "recall": 0.0,
+        "mAP50": 0.0053409331919406135,
+        "mAP50_95": 0.00277113600212089
+      }
+    ],
+    "provenance": {
+      "dataset_yaml": {
+        "path": "C:\\projeto-tcc\\projeto-tcc\\data\\construction-ppe.yaml",
+        "sha256": "a8fe809690a8113b943338380f99674f3f88f09f7b82b7c6a02172622c85c332"
+      },
+      "resolved_dataset": {
+        "path": "C:\\projeto-tcc\\projeto-tcc\\runs\\train\\ppe_tcc\\dataset.resolved.yaml",
+        "sha256": "128e50a89a1af17cb752a1e11f796271621cf3e628d5e28988cfc1b8a9afb9c3"
+      },
+      "dataset_audit": "C:\\projeto-tcc\\projeto-tcc\\runs\\train\\ppe_tcc\\dataset-audit.json",
+      "split_manifests": {
+        "train": {
+          "path": "C:\\projeto-tcc\\projeto-tcc\\runs\\train\\ppe_tcc\\train.txt",
+          "sha256": "46f64909af2363b0f2fc26a16ed41959b9f960d74a08feed740272ecf3b7d639"
+        },
+        "val": {
+          "path": "C:\\projeto-tcc\\projeto-tcc\\runs\\train\\ppe_tcc\\val.txt",
+          "sha256": "5154998fc075627e3fbbff86676623fa72a1356e82543cefe39f0be3a43f110c"
+        },
+        "test": {
+          "path": "C:\\projeto-tcc\\projeto-tcc\\runs\\train\\ppe_tcc\\test.txt",
+          "sha256": "a9809dd3c965e88513f52d457346a14997113f88f4cd4c4b611469a8a994e88f"
+        }
+      },
+      "initial_weights": {
+        "path": "C:\\projeto-tcc\\projeto-tcc\\models\\yolo11n.pt",
+        "sha256": "0ebbc80d4a7680d14987a577cd21342b65ecfd94632bd9a8da63ae6417644ee1"
+      },
+      "best_weights": {
+        "path": "C:\\projeto-tcc\\projeto-tcc\\runs\\train\\ppe_tcc\\weights\\best.pt",
+        "sha256": "aab17d43f5de6d62216c80110c7214adeda5e52d210f9f9a0fb910e983709a01"
+      },
+      "last_weights": {
+        "path": "C:\\projeto-tcc\\projeto-tcc\\runs\\train\\ppe_tcc\\weights\\last.pt",
+        "sha256": "c8a35d4f6850b503e71f67eeeb4ef82d157c6854b9ca099cbacb445ec8fd75d7"
+      }
+    },
+    "best_weights": "C:\\projeto-tcc\\projeto-tcc\\runs\\train\\ppe_tcc\\weights\\best.pt",
+    "last_weights": "C:\\projeto-tcc\\projeto-tcc\\runs\\train\\ppe_tcc\\weights\\last.pt",
+    "report_path": "C:\\projeto-tcc\\projeto-tcc\\runs\\train\\ppe_tcc\\training.json"
+  },
+  "individual_detector_test": {
+    "kind": "validation",
+    "environment": {
+      "timestamp_utc": "2026-09-23T16:33:33.574774+00:00",
+      "python": "3.12.14",
+      "platform": "Windows-11-10.0.26200-SP0",
+      "processor": "Intel64 Family 6 Model 186 Stepping 3, GenuineIntel",
+      "device": "cpu",
+      "versions": {
+        "ultralytics": "8.3.203",
+        "torch": "2.8.0",
+        "numpy": "2.2.6",
+        "onnxruntime": "1.22.1",
+        "openvino": "2025.4.1",
+        "nncf": "2.19.0",
+        "tensorrt": null
+      }
+    },
+    "config": {
+      "model": "runs/train/ppe_tcc/weights/best.pt",
+      "data": "C:\\projeto-tcc\\projeto-tcc\\data\\construction-ppe.yaml",
+      "imgsz": 640,
+      "batch": 1,
+      "requested_imgsz": 640,
+      "requested_batch": 1,
+      "split": "test",
+      "confidence": 0.001,
+      "iou": 0.7
+    },
+    "metrics": {
+      "metrics/precision(B)": 0.7645421636832359,
+      "metrics/recall(B)": 0.4191830150108729,
+      "metrics/mAP50(B)": 0.4799038693840389,
+      "metrics/mAP50-95(B)": 0.22440380573332042,
+      "fitness": 0.22440380573332042,
+      "mAP50": 0.4799038693840389,
+      "mAP50_95": 0.22440380573332042,
+      "precision": 0.7645421636832359,
+      "recall": 0.4191830150108729
+    },
+    "per_class": [
+      {
+        "class_id": 0,
+        "name": "helmet",
+        "instances": 192,
+        "evaluated": true,
+        "precision": 0.9029171214362358,
+        "recall": 0.8072916666666666,
+        "mAP50": 0.8815771106849752,
+        "mAP50_95": 0.44251698463969724
+      },
+      {
+        "class_id": 1,
+        "name": "gloves",
+        "instances": 163,
+        "evaluated": true,
+        "precision": 0.8470537454562852,
+        "recall": 0.6380368098159509,
+        "mAP50": 0.7296068347925673,
+        "mAP50_95": 0.3456113643814781
+      },
+      {
+        "class_id": 2,
+        "name": "vest",
+        "instances": 178,
+        "evaluated": true,
+        "precision": 0.853884999276551,
+        "recall": 0.797752808988764,
+        "mAP50": 0.8619150665283318,
+        "mAP50_95": 0.5168680839217383
+      },
+      {
+        "class_id": 3,
+        "name": "boots",
+        "instances": 211,
+        "evaluated": true,
+        "precision": 0.7808185043722498,
+        "recall": 0.5909306365917446,
+        "mAP50": 0.6934700358887423,
+        "mAP50_95": 0.33784170801722885
+      },
+      {
+        "class_id": 4,
+        "name": "goggles",
+        "instances": 52,
+        "evaluated": true,
+        "precision": 0.7737145707968304,
+        "recall": 0.5384615384615384,
+        "mAP50": 0.6517281326032985,
+        "mAP50_95": 0.25560521932844604
+      },
+      {
+        "class_id": 5,
+        "name": "none",
+        "instances": 65,
+        "evaluated": true,
+        "precision": 0.5636737184219843,
+        "recall": 0.2923076923076923,
+        "mAP50": 0.2883192106776371,
+        "mAP50_95": 0.0821047457917258
+      },
+      {
+        "class_id": 6,
+        "name": "Person",
+        "instances": 236,
+        "evaluated": true,
+        "precision": 0.7978191730555537,
+        "recall": 0.7858738927777686,
+        "mAP50": 0.796852030057705,
+        "mAP50_95": 0.3769408088555963
+      },
+      {
+        "class_id": 7,
+        "name": "no_helmet",
+        "instances": 40,
+        "evaluated": true,
+        "precision": 0.55191330755232,
+        "recall": 0.125,
+        "mAP50": 0.19801565636958945,
+        "mAP50_95": 0.06721070089204953
+      },
+      {
+        "class_id": 8,
+        "name": "no_goggle",
+        "instances": 33,
+        "evaluated": true,
+        "precision": 1.0,
+        "recall": 0.0,
+        "mAP50": 0.06334909652608521,
+        "mAP50_95": 0.020672806590957778
+      },
+      {
+        "class_id": 9,
+        "name": "no_gloves",
+        "instances": 58,
+        "evaluated": true,
+        "precision": 0.33816866014758545,
+        "recall": 0.03535811950947668,
+        "mAP50": 0.09880078329808459,
+        "mAP50_95": 0.02030330728892258
+      },
+      {
+        "class_id": 10,
+        "name": "no_boots",
+        "instances": 23,
+        "evaluated": true,
+        "precision": 1.0,
+        "recall": 0.0,
+        "mAP50": 0.015308605797410349,
+        "mAP50_95": 0.0027661333586840864
+      }
+    ],
+    "provenance": {
+      "dataset_yaml": {
+        "path": "C:\\projeto-tcc\\projeto-tcc\\data\\construction-ppe.yaml",
+        "sha256": "a8fe809690a8113b943338380f99674f3f88f09f7b82b7c6a02172622c85c332"
+      },
+      "resolved_dataset": {
+        "path": "C:\\projeto-tcc\\projeto-tcc\\runs\\validate\\ppe_tcc_test\\dataset.resolved.yaml",
+        "sha256": "471582381918cee964af5ecf34694a590f976d25559b6e93e2038b2956bb3014"
+      },
+      "dataset_audit": "C:\\projeto-tcc\\projeto-tcc\\runs\\validate\\ppe_tcc_test\\dataset-audit.json",
+      "split_manifests": {
+        "train": {
+          "path": "C:\\projeto-tcc\\projeto-tcc\\runs\\validate\\ppe_tcc_test\\train.txt",
+          "sha256": "46f64909af2363b0f2fc26a16ed41959b9f960d74a08feed740272ecf3b7d639"
+        },
+        "val": {
+          "path": "C:\\projeto-tcc\\projeto-tcc\\runs\\validate\\ppe_tcc_test\\val.txt",
+          "sha256": "5154998fc075627e3fbbff86676623fa72a1356e82543cefe39f0be3a43f110c"
+        },
+        "test": {
+          "path": "C:\\projeto-tcc\\projeto-tcc\\runs\\validate\\ppe_tcc_test\\test.txt",
+          "sha256": "a9809dd3c965e88513f52d457346a14997113f88f4cd4c4b611469a8a994e88f"
+        }
+      },
+      "weights": {
+        "path": "C:\\projeto-tcc\\projeto-tcc\\runs\\train\\ppe_tcc\\weights\\best.pt",
+        "sha256": "aab17d43f5de6d62216c80110c7214adeda5e52d210f9f9a0fb910e983709a01"
+      }
+    },
+    "speed_ms_per_image": {
+      "preprocess": 1.180385815693645,
+      "inference": 144.49738723397522,
+      "loss": 0.0015765955198576,
+      "postprocess": 4.726903546073743
+    },
+    "class_names": {
+      "0": "helmet",
+      "1": "gloves",
+      "2": "vest",
+      "3": "boots",
+      "4": "goggles",
+      "5": "none",
+      "6": "Person",
+      "7": "no_helmet",
+      "8": "no_goggle",
+      "9": "no_gloves",
+      "10": "no_boots"
+    },
+    "report_path": "C:\\projeto-tcc\\projeto-tcc\\runs\\validate\\ppe_tcc_test\\validation.json"
+  },
+  "int8_detector_test": {
+    "kind": "validation",
+    "environment": {
+      "timestamp_utc": "2026-09-23T16:40:43.671726+00:00",
+      "python": "3.12.14",
+      "platform": "Windows-11-10.0.26200-SP0",
+      "processor": "Intel64 Family 6 Model 186 Stepping 3, GenuineIntel",
+      "device": "cpu",
+      "versions": {
+        "ultralytics": "8.3.203",
+        "torch": "2.8.0",
+        "numpy": "2.2.6",
+        "onnxruntime": "1.22.1",
+        "openvino": "2025.4.1",
+        "nncf": "2.19.0",
+        "tensorrt": null
+      }
+    },
+    "config": {
+      "model": "models/ppe/best_int8_openvino_model",
+      "data": "C:\\projeto-tcc\\projeto-tcc\\data\\construction-ppe.yaml",
+      "imgsz": 640,
+      "batch": 1,
+      "requested_imgsz": 640,
+      "requested_batch": 1,
+      "split": "test",
+      "confidence": 0.001,
+      "iou": 0.7
+    },
+    "metrics": {
+      "metrics/precision(B)": 0.7253917003211856,
+      "metrics/recall(B)": 0.4398125748250102,
+      "metrics/mAP50(B)": 0.47677758455134267,
+      "metrics/mAP50-95(B)": 0.22763095771480346,
+      "fitness": 0.22763095771480346,
+      "mAP50": 0.47677758455134267,
+      "mAP50_95": 0.22763095771480346,
+      "precision": 0.7253917003211856,
+      "recall": 0.4398125748250102
+    },
+    "per_class": [
+      {
+        "class_id": 0,
+        "name": "helmet",
+        "instances": 192,
+        "evaluated": true,
+        "precision": 0.9026669372482902,
+        "recall": 0.84375,
+        "mAP50": 0.896207575351169,
+        "mAP50_95": 0.44922018724217094
+      },
+      {
+        "class_id": 1,
+        "name": "gloves",
+        "instances": 163,
+        "evaluated": true,
+        "precision": 0.8476785631816424,
+        "recall": 0.6486980075284009,
+        "mAP50": 0.7377118116630761,
+        "mAP50_95": 0.34955937273200866
+      },
+      {
+        "class_id": 2,
+        "name": "vest",
+        "instances": 178,
+        "evaluated": true,
+        "precision": 0.8429416265960754,
+        "recall": 0.8370786516853933,
+        "mAP50": 0.8765982278970477,
+        "mAP50_95": 0.5249171015217955
+      },
+      {
+        "class_id": 3,
+        "name": "boots",
+        "instances": 211,
+        "evaluated": true,
+        "precision": 0.72381019954932,
+        "recall": 0.6492890995260664,
+        "mAP50": 0.6892438288884624,
+        "mAP50_95": 0.34923178243717656
+      },
+      {
+        "class_id": 4,
+        "name": "goggles",
+        "instances": 52,
+        "evaluated": true,
+        "precision": 0.7171198538643908,
+        "recall": 0.5961538461538461,
+        "mAP50": 0.6353407401251686,
+        "mAP50_95": 0.23360621710945803
+      },
+      {
+        "class_id": 5,
+        "name": "none",
+        "instances": 65,
+        "evaluated": true,
+        "precision": 0.521226547943084,
+        "recall": 0.27692307692307694,
+        "mAP50": 0.29927143030167697,
+        "mAP50_95": 0.0901533735643761
+      },
+      {
+        "class_id": 6,
+        "name": "Person",
+        "instances": 236,
+        "evaluated": true,
+        "precision": 0.7473031088150285,
+        "recall": 0.8135593220338984,
+        "mAP50": 0.7947702277259809,
+        "mAP50_95": 0.39472419292288463
+      },
+      {
+        "class_id": 7,
+        "name": "no_helmet",
+        "instances": 40,
+        "evaluated": true,
+        "precision": 0.3235077132086986,
+        "recall": 0.125,
+        "mAP50": 0.17577076837454905,
+        "mAP50_95": 0.07585542268094128
+      },
+      {
+        "class_id": 8,
+        "name": "no_goggle",
+        "instances": 33,
+        "evaluated": true,
+        "precision": 1.0,
+        "recall": 0.0,
+        "mAP50": 0.06636936303532318,
+        "mAP50_95": 0.017066188548312274
+      },
+      {
+        "class_id": 9,
+        "name": "no_gloves",
+        "instances": 58,
+        "evaluated": true,
+        "precision": 0.35305415312651145,
+        "recall": 0.0474863192244298,
+        "mAP50": 0.06739901654714225,
+        "mAP50_95": 0.01805214563294743
+      },
+      {
+        "class_id": 10,
+        "name": "no_boots",
+        "instances": 23,
+        "evaluated": true,
+        "precision": 1.0,
+        "recall": 0.0,
+        "mAP50": 0.005870440155172231,
+        "mAP50_95": 0.0015545504707666856
+      }
+    ],
+    "provenance": {
+      "dataset_yaml": {
+        "path": "C:\\projeto-tcc\\projeto-tcc\\data\\construction-ppe.yaml",
+        "sha256": "a8fe809690a8113b943338380f99674f3f88f09f7b82b7c6a02172622c85c332"
+      },
+      "resolved_dataset": {
+        "path": "C:\\projeto-tcc\\projeto-tcc\\runs\\validate\\ppe_tcc_int8_test\\dataset.resolved.yaml",
+        "sha256": "4122ea635a7c0824b97e55ba86602212c947370bfe1265098a13068c0d5b1df1"
+      },
+      "dataset_audit": "C:\\projeto-tcc\\projeto-tcc\\runs\\validate\\ppe_tcc_int8_test\\dataset-audit.json",
+      "split_manifests": {
+        "train": {
+          "path": "C:\\projeto-tcc\\projeto-tcc\\runs\\validate\\ppe_tcc_int8_test\\train.txt",
+          "sha256": "46f64909af2363b0f2fc26a16ed41959b9f960d74a08feed740272ecf3b7d639"
+        },
+        "val": {
+          "path": "C:\\projeto-tcc\\projeto-tcc\\runs\\validate\\ppe_tcc_int8_test\\val.txt",
+          "sha256": "5154998fc075627e3fbbff86676623fa72a1356e82543cefe39f0be3a43f110c"
+        },
+        "test": {
+          "path": "C:\\projeto-tcc\\projeto-tcc\\runs\\validate\\ppe_tcc_int8_test\\test.txt",
+          "sha256": "a9809dd3c965e88513f52d457346a14997113f88f4cd4c4b611469a8a994e88f"
+        }
+      },
+      "weights": {
+        "path": "C:\\projeto-tcc\\projeto-tcc\\models\\ppe\\best_int8_openvino_model",
+        "sha256": "db090e22c544071ad538c8be100de14529f2ecbf04eb2a44f9751fefd610ed7d",
+        "files": {
+          "best.bin": "54f755ca9c65228a584e4d1bbc3c60a04b8ccf62e94c83cf9f67fb938866c8a5",
+          "best.xml": "29f7839ca43e30c0e14f47f20f534c167704c19a5ba88d57c4ec8b07f41e4b8c",
+          "metadata.yaml": "126bcb50e7518e9aff343fec24d3e3372ba447e38376c52d30cdb213a6422fd8"
+        },
+        "hash_scope": "SHA256 do JSON ordenado de caminhos relativos e hashes dos arquivos."
+      }
+    },
+    "speed_ms_per_image": {
+      "preprocess": 0.7791205675503015,
+      "inference": 69.07633617042492,
+      "loss": 0.0022127660099129647,
+      "postprocess": 4.882437588713265
+    },
+    "class_names": {
+      "0": "helmet",
+      "1": "gloves",
+      "2": "vest",
+      "3": "boots",
+      "4": "goggles",
+      "5": "none",
+      "6": "Person",
+      "7": "no_helmet",
+      "8": "no_goggle",
+      "9": "no_gloves",
+      "10": "no_boots"
+    },
+    "report_path": "C:\\projeto-tcc\\projeto-tcc\\runs\\validate\\ppe_tcc_int8_test\\validation.json"
+  },
+  "cascade_public_baseline": {
+    "kind": "cascade_fixed_threshold_detection_evaluation",
+    "timestamp_utc": "2026-09-23T11:02:08.726177+00:00",
+    "config": {
+      "data": "C:\\projeto-tcc\\projeto-tcc\\data\\construction-ppe.yaml",
+      "split": "test",
+      "confidence": 0.4,
+      "iou": 0.45,
+      "match_iou": 0.5,
+      "max_images": null,
+      "sample_selection": "sorted paths, first N; no shuffle",
+      "error_record_limit": 5000
+    },
+    "dataset": {
+      "source": "external_dataset",
+      "training_overlap": "unknown",
+      "held_out_verified": false,
+      "available_images": 141,
+      "evaluated_images": 141,
+      "names": {
+        "0": "helmet",
+        "1": "gloves",
+        "2": "vest",
+        "3": "boots",
+        "4": "goggles",
+        "5": "none",
+        "6": "Person",
+        "7": "no_helmet",
+        "8": "no_goggle",
+        "9": "no_gloves",
+        "10": "no_boots"
+      },
+      "evaluated_set_sha256": "29fb253a508a55f69894b178122757814cec3863d8c8e7d1dc56d11f260ee1c3",
+      "hash_scope": "names, split and ordered evaluated image/label content hashes; missing labels marked explicitly",
+      "background_images": 0,
+      "images_without_scored_labels": 0,
+      "missing_label_files": [],
+      "empty_label_files": []
+    },
+    "coverage": {
+      "scored_classes": [
+        "person",
+        "helmet",
+        "vest",
+        "no_helmet"
+      ],
+      "unannotated_canonical_classes": [
+        "no_vest"
+      ],
+      "ignored_dataset_classes": {
+        "1": "gloves",
+        "3": "boots",
+        "4": "goggles",
+        "5": "none",
+        "8": "no_goggle",
+        "9": "no_gloves",
+        "10": "no_boots"
+      },
+      "ignored_predictions": {
+        "total": 0,
+        "by_label": {}
+      },
+      "ignored_ground_truth": {
+        "total": 605,
+        "by_label": {
+          "gloves": 163,
+          "boots": 211,
+          "goggles": 52,
+          "no_goggle": 33,
+          "none": 65,
+          "no_gloves": 58,
+          "no_boots": 23
+        }
+      },
+      "predictions_below_confidence": 0
+    },
+    "per_class": {
+      "person": {
+        "tp": 186,
+        "fp": 51,
+        "fn": 50,
+        "ground_truth": 236,
+        "predictions": 237,
+        "precision": 0.7848101265822784,
+        "recall": 0.788135593220339
+      },
+      "helmet": {
+        "tp": 59,
+        "fp": 43,
+        "fn": 133,
+        "ground_truth": 192,
+        "predictions": 102,
+        "precision": 0.5784313725490197,
+        "recall": 0.3072916666666667
+      },
+      "vest": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 177,
+        "ground_truth": 178,
+        "predictions": 1,
+        "precision": 1.0,
+        "recall": 0.0056179775280898875
+      },
+      "no_helmet": {
+        "tp": 7,
+        "fp": 18,
+        "fn": 33,
+        "ground_truth": 40,
+        "predictions": 25,
+        "precision": 0.28,
+        "recall": 0.175
+      }
+    },
+    "micro": {
+      "tp": 253,
+      "fp": 112,
+      "fn": 393,
+      "ground_truth": 646,
+      "predictions": 365,
+      "precision": 0.6931506849315069,
+      "recall": 0.39164086687306504
+    },
+    "errors_total": 505,
+    "errors_truncated": false,
+    "pipeline_latency_ms": {
+      "samples": 141,
+      "mean": 321.974209219853,
+      "p50": 305.1252000000204,
+      "p95": 527.389100000164,
+      "total": 45398.36349999928
+    },
+    "stage_latency_ms": {
+      "person": {
+        "samples": 141,
+        "mean": 169.81717659573502,
+        "p50": 152.36920000006648,
+        "p95": 292.27510000009715,
+        "total": 23944.221899998636
+      },
+      "ppe": {
+        "samples": 141,
+        "mean": 151.84385531914916,
+        "p50": 141.27110000003995,
+        "p95": 275.9886999999708,
+        "total": 21409.983600000032
+      }
+    },
+    "evaluation_wall_time_ms": 46149.78730000007,
+    "environment": {
+      "python": "3.12.14",
+      "platform": "Windows-11-10.0.26200-SP0",
+      "processor": "Intel64 Family 6 Model 186 Stepping 3, GenuineIntel",
+      "pipeline": "CascadePipeline",
+      "stages": {
+        "person_detector": {
+          "device": "cpu",
+          "configured_model_path": "models/yolo11n.pt",
+          "configured_device": "cpu",
+          "configured_confidence": 0.4,
+          "configured_iou": 0.45,
+          "configured_imgsz": 640
+        },
+        "ppe_detector": {
+          "device": "cpu",
+          "configured_model_path": "models/ppe/baseline-public.pt",
+          "configured_device": "cpu",
+          "configured_confidence": 0.4,
+          "configured_iou": 0.45,
+          "configured_imgsz": 640
+        }
+      }
+    },
+    "limitations": [
+      "Fixed-threshold box precision/recall, not AP or mAP; no confidence sweep.",
+      "Only classes declared in YAML are scored; declaration does not prove exhaustive annotation.",
+      "Missing label files are treated as background; review the explicit list before interpreting false positives.",
+      "Per-person PPE states and equipment-person associations are not evaluated from isolated box labels.",
+      "Overlap with model training data is unknown; this report does not establish an independent held-out test.",
+      "Latency includes the first pipeline call, excludes image I/O and depends on the recorded hardware."
+    ],
+    "report_path": "C:\\projeto-tcc\\projeto-tcc\\runs\\tcc-review\\cascade-public-test.json"
+  },
+  "cascade_trained": {
+    "kind": "cascade_fixed_threshold_detection_evaluation",
+    "timestamp_utc": "2026-09-23T16:35:35.535916+00:00",
+    "config": {
+      "data": "C:\\projeto-tcc\\projeto-tcc\\data\\construction-ppe.yaml",
+      "split": "test",
+      "confidence": 0.4,
+      "iou": 0.45,
+      "match_iou": 0.5,
+      "max_images": null,
+      "sample_selection": "sorted paths, first N; no shuffle",
+      "error_record_limit": 5000
+    },
+    "dataset": {
+      "source": "external_dataset",
+      "training_overlap": "unknown",
+      "held_out_verified": false,
+      "available_images": 141,
+      "evaluated_images": 141,
+      "names": {
+        "0": "helmet",
+        "1": "gloves",
+        "2": "vest",
+        "3": "boots",
+        "4": "goggles",
+        "5": "none",
+        "6": "Person",
+        "7": "no_helmet",
+        "8": "no_goggle",
+        "9": "no_gloves",
+        "10": "no_boots"
+      },
+      "evaluated_set_sha256": "29fb253a508a55f69894b178122757814cec3863d8c8e7d1dc56d11f260ee1c3",
+      "hash_scope": "names, split and ordered evaluated image/label content hashes; missing labels marked explicitly",
+      "background_images": 0,
+      "images_without_scored_labels": 0,
+      "missing_label_files": [],
+      "empty_label_files": []
+    },
+    "coverage": {
+      "scored_classes": [
+        "person",
+        "helmet",
+        "vest",
+        "no_helmet"
+      ],
+      "unannotated_canonical_classes": [
+        "no_vest"
+      ],
+      "ignored_dataset_classes": {
+        "1": "gloves",
+        "3": "boots",
+        "4": "goggles",
+        "5": "none",
+        "8": "no_goggle",
+        "9": "no_gloves",
+        "10": "no_boots"
+      },
+      "ignored_predictions": {
+        "total": 0,
+        "by_label": {}
+      },
+      "ignored_ground_truth": {
+        "total": 605,
+        "by_label": {
+          "gloves": 163,
+          "boots": 211,
+          "goggles": 52,
+          "no_goggle": 33,
+          "none": 65,
+          "no_gloves": 58,
+          "no_boots": 23
+        }
+      },
+      "predictions_below_confidence": 0
+    },
+    "per_class": {
+      "person": {
+        "tp": 186,
+        "fp": 51,
+        "fn": 50,
+        "ground_truth": 236,
+        "predictions": 237,
+        "precision": 0.7848101265822784,
+        "recall": 0.788135593220339
+      },
+      "helmet": {
+        "tp": 153,
+        "fp": 8,
+        "fn": 39,
+        "ground_truth": 192,
+        "predictions": 161,
+        "precision": 0.9503105590062112,
+        "recall": 0.796875
+      },
+      "vest": {
+        "tp": 139,
+        "fp": 8,
+        "fn": 39,
+        "ground_truth": 178,
+        "predictions": 147,
+        "precision": 0.9455782312925171,
+        "recall": 0.7808988764044944
+      },
+      "no_helmet": {
+        "tp": 5,
+        "fp": 1,
+        "fn": 35,
+        "ground_truth": 40,
+        "predictions": 6,
+        "precision": 0.8333333333333334,
+        "recall": 0.125
+      }
+    },
+    "micro": {
+      "tp": 483,
+      "fp": 68,
+      "fn": 163,
+      "ground_truth": 646,
+      "predictions": 551,
+      "precision": 0.8765880217785844,
+      "recall": 0.7476780185758514
+    },
+    "errors_total": 231,
+    "errors_truncated": false,
+    "pipeline_latency_ms": {
+      "samples": 141,
+      "mean": 318.5189588653394,
+      "p50": 288.5840000017197,
+      "p95": 508.27339999887045,
+      "total": 44911.173200012854
+    },
+    "stage_latency_ms": {
+      "person": {
+        "samples": 141,
+        "mean": 166.25873120579558,
+        "p50": 145.85339999757707,
+        "p95": 260.698300000513,
+        "total": 23442.481100017176
+      },
+      "ppe": {
+        "samples": 141,
+        "mean": 151.84320567367914,
+        "p50": 137.44130000122823,
+        "p95": 254.91270000202348,
+        "total": 21409.89199998876
+      }
+    },
+    "evaluation_wall_time_ms": 45820.484300002136,
+    "environment": {
+      "python": "3.12.14",
+      "platform": "Windows-11-10.0.26200-SP0",
+      "processor": "Intel64 Family 6 Model 186 Stepping 3, GenuineIntel",
+      "pipeline": "CascadePipeline",
+      "stages": {
+        "person_detector": {
+          "device": "cpu",
+          "configured_model_path": "models/yolo11n.pt",
+          "configured_device": "cpu",
+          "configured_confidence": 0.4,
+          "configured_iou": 0.45,
+          "configured_imgsz": 640
+        },
+        "ppe_detector": {
+          "device": "cpu",
+          "configured_model_path": "runs/train/ppe_tcc/weights/best.pt",
+          "configured_device": "cpu",
+          "configured_confidence": 0.4,
+          "configured_iou": 0.45,
+          "configured_imgsz": 640
+        }
+      }
+    },
+    "limitations": [
+      "Fixed-threshold box precision/recall, not AP or mAP; no confidence sweep.",
+      "Only classes declared in YAML are scored; declaration does not prove exhaustive annotation.",
+      "Missing label files are treated as background; review the explicit list before interpreting false positives.",
+      "Per-person PPE states and equipment-person associations are not evaluated from isolated box labels.",
+      "Overlap with model training data is unknown; this report does not establish an independent held-out test.",
+      "Latency includes the first pipeline call, excludes image I/O and depends on the recorded hardware."
+    ],
+    "report_path": "C:\\projeto-tcc\\projeto-tcc\\runs\\tcc-review\\cascade-trained-test.json"
+  },
+  "calibration": {
+    "split": "train only",
+    "eligible_images": 340,
+    "statistics_samples": 300,
+    "fraction": 0.3,
+    "configuration": "data/construction-ppe-calibration.yaml",
+    "artifact_sha256": {
+      "best.bin": "54f755ca9c65228a584e4d1bbc3c60a04b8ccf62e94c83cf9f67fb938866c8a5",
+      "best.xml": "29f7839ca43e30c0e14f47f20f534c167704c19a5ba88d57c4ec8b07f41e4b8c",
+      "metadata.yaml": "126bcb50e7518e9aff343fec24d3e3372ba447e38376c52d30cdb213a6422fd8"
+    }
+  },
+  "limitations": [
+    "Auditoria detectou zero cópias byte a byte; imagens semelhantes e dependência entre cenas não foram descartadas.",
+    "Teste já consultado no diagnóstico do modelo externo: comparação exploratória, não teste confirmatório cego.",
+    "Sem anotações de associação pessoa/EPI e estado final: métricas são de caixas.",
+    "Ultralytics pode usar padding retangular em PyTorch e forma fixa no OpenVINO; diferenças não isolam somente quantização.",
+    "No_helmet tem recall baixo e não há no_vest. Não usar como fiscalização automática.",
+    "Pesos COCO iniciais podem ter exposições não conhecidas; não afirma independência absoluta do pré-treino."
+  ],
+  "cascade_int8": {
+    "kind": "cascade_fixed_threshold_detection_evaluation",
+    "timestamp_utc": "2026-09-23T16:41:54.352061+00:00",
+    "config": {
+      "data": "C:\\projeto-tcc\\projeto-tcc\\data\\construction-ppe.yaml",
+      "split": "test",
+      "confidence": 0.4,
+      "iou": 0.45,
+      "match_iou": 0.5,
+      "max_images": null,
+      "sample_selection": "sorted paths, first N; no shuffle",
+      "error_record_limit": 5000
+    },
+    "dataset": {
+      "source": "external_dataset",
+      "training_overlap": "unknown",
+      "held_out_verified": false,
+      "available_images": 141,
+      "evaluated_images": 141,
+      "names": {
+        "0": "helmet",
+        "1": "gloves",
+        "2": "vest",
+        "3": "boots",
+        "4": "goggles",
+        "5": "none",
+        "6": "Person",
+        "7": "no_helmet",
+        "8": "no_goggle",
+        "9": "no_gloves",
+        "10": "no_boots"
+      },
+      "evaluated_set_sha256": "29fb253a508a55f69894b178122757814cec3863d8c8e7d1dc56d11f260ee1c3",
+      "hash_scope": "names, split and ordered evaluated image/label content hashes; missing labels marked explicitly",
+      "background_images": 0,
+      "images_without_scored_labels": 0,
+      "missing_label_files": [],
+      "empty_label_files": []
+    },
+    "coverage": {
+      "scored_classes": [
+        "person",
+        "helmet",
+        "vest",
+        "no_helmet"
+      ],
+      "unannotated_canonical_classes": [
+        "no_vest"
+      ],
+      "ignored_dataset_classes": {
+        "1": "gloves",
+        "3": "boots",
+        "4": "goggles",
+        "5": "none",
+        "8": "no_goggle",
+        "9": "no_gloves",
+        "10": "no_boots"
+      },
+      "ignored_predictions": {
+        "total": 0,
+        "by_label": {}
+      },
+      "ignored_ground_truth": {
+        "total": 605,
+        "by_label": {
+          "gloves": 163,
+          "boots": 211,
+          "goggles": 52,
+          "no_goggle": 33,
+          "none": 65,
+          "no_gloves": 58,
+          "no_boots": 23
+        }
+      },
+      "predictions_below_confidence": 0
+    },
+    "per_class": {
+      "person": {
+        "tp": 186,
+        "fp": 51,
+        "fn": 50,
+        "ground_truth": 236,
+        "predictions": 237,
+        "precision": 0.7848101265822784,
+        "recall": 0.788135593220339
+      },
+      "helmet": {
+        "tp": 151,
+        "fp": 7,
+        "fn": 41,
+        "ground_truth": 192,
+        "predictions": 158,
+        "precision": 0.9556962025316456,
+        "recall": 0.7864583333333334
+      },
+      "vest": {
+        "tp": 137,
+        "fp": 8,
+        "fn": 41,
+        "ground_truth": 178,
+        "predictions": 145,
+        "precision": 0.9448275862068966,
+        "recall": 0.7696629213483146
+      },
+      "no_helmet": {
+        "tp": 3,
+        "fp": 1,
+        "fn": 37,
+        "ground_truth": 40,
+        "predictions": 4,
+        "precision": 0.75,
+        "recall": 0.075
+      }
+    },
+    "micro": {
+      "tp": 477,
+      "fp": 67,
+      "fn": 169,
+      "ground_truth": 646,
+      "predictions": 544,
+      "precision": 0.8768382352941176,
+      "recall": 0.7383900928792569
+    },
+    "errors_total": 236,
+    "errors_truncated": false,
+    "pipeline_latency_ms": {
+      "samples": 141,
+      "mean": 204.18889007090112,
+      "p50": 207.22119999845745,
+      "p95": 250.82169999950565,
+      "total": 28790.633499997057
+    },
+    "stage_latency_ms": {
+      "person": {
+        "samples": 141,
+        "mean": 139.41549432617927,
+        "p50": 141.37320000008913,
+        "p95": 179.17119999765418,
+        "total": 19657.584699991276
+      },
+      "ppe": {
+        "samples": 141,
+        "mean": 64.40901702124599,
+        "p50": 70.06380000166246,
+        "p95": 78.76949999990757,
+        "total": 9081.671399995685
+      }
+    },
+    "evaluation_wall_time_ms": 29561.09419999848,
+    "environment": {
+      "python": "3.12.14",
+      "platform": "Windows-11-10.0.26200-SP0",
+      "processor": "Intel64 Family 6 Model 186 Stepping 3, GenuineIntel",
+      "pipeline": "CascadePipeline",
+      "stages": {
+        "person_detector": {
+          "device": "cpu",
+          "configured_model_path": "models/yolo11n.pt",
+          "configured_device": "cpu",
+          "configured_confidence": 0.4,
+          "configured_iou": 0.45,
+          "configured_imgsz": 640
+        },
+        "ppe_detector": {
+          "device": "cpu",
+          "configured_model_path": "models/ppe/best_int8_openvino_model",
+          "configured_device": "cpu",
+          "configured_confidence": 0.4,
+          "configured_iou": 0.45,
+          "configured_imgsz": 640
+        }
+      }
+    },
+    "limitations": [
+      "Fixed-threshold box precision/recall, not AP or mAP; no confidence sweep.",
+      "Only classes declared in YAML are scored; declaration does not prove exhaustive annotation.",
+      "Missing label files are treated as background; review the explicit list before interpreting false positives.",
+      "Per-person PPE states and equipment-person associations are not evaluated from isolated box labels.",
+      "Overlap with model training data is unknown; this report does not establish an independent held-out test.",
+      "Latency includes the first pipeline call, excludes image I/O and depends on the recorded hardware."
+    ],
+    "report_path": "C:\\projeto-tcc\\projeto-tcc\\runs\\tcc-review\\cascade-int8-test.json"
+  },
+  "benchmarks": {
+    "pt": {
+      "kind": "cascade_benchmark",
+      "environment": {
+        "timestamp_utc": "2026-09-23T16:45:31.896635+00:00",
+        "python": "3.12.14",
+        "platform": "Windows-11-10.0.26200-SP0",
+        "processor": "Intel64 Family 6 Model 186 Stepping 3, GenuineIntel",
+        "device": "cpu",
+        "versions": {
+          "ultralytics": "8.3.203",
+          "torch": "2.8.0",
+          "numpy": "2.2.6",
+          "onnxruntime": "1.22.1",
+          "openvino": "2025.4.1",
+          "nncf": "2.19.0",
+          "tensorrt": null
+        }
+      },
+      "config": {
+        "model": "models/yolo11n.pt",
+        "source_type": "video_or_stream",
+        "source_file": "C:\\projeto-tcc\\projeto-tcc\\runs\\tcc-review\\benchmark.avi",
+        "imgsz": 640,
+        "requested_imgsz": 640,
+        "ppe_model": "models/ppe/best.pt",
+        "ppe_imgsz": 640,
+        "ppe_device": "cpu",
+        "confidence": 0.4,
+        "iou": 0.45,
+        "warmup": 10,
+        "requested_frames": 40,
+        "measured_frames": 40
+      },
+      "timings": {
+        "detector_call": {
+          "mean_ms": 281.46763499962617,
+          "p50_ms": 273.9916999998968,
+          "p95_ms": 375.02295499944006,
+          "fps": 3.552806346638498
+        },
+        "pipeline": {
+          "mean_ms": 281.6837400001532,
+          "p50_ms": 274.18519999991986,
+          "p95_ms": 375.21303999874357,
+          "fps": 3.5500806684810993
+        },
+        "capture_pipeline_render": {
+          "mean_ms": 284.88421250012834,
+          "p50_ms": 277.11059999819554,
+          "p95_ms": 378.06798500132567,
+          "fps": 3.510198024748562
+        }
+      },
+      "scope": {
+        "detector_call": "Soma das chamadas predict de pessoa e EPI; EPI executa somente quando há pessoa.",
+        "pipeline": "Processamento do frame e regras; exclui captura, renderização e UI.",
+        "capture_pipeline_render": "Captura/decodificação, pipeline e renderização; exclui UI, disco e carregamento do modelo.",
+        "stage_timings": "Person inclui todos os frames medidos; PPE inclui somente frames em que o segundo estágio executou, sem zeros de frames pulados."
+      },
+      "accuracy": "Não medida. Benchmark de latência não estima mAP; use validate com dataset anotado.",
+      "ppe_executed_frames": 40,
+      "ppe_skipped_frames": 0,
+      "stage_timings": {
+        "person": {
+          "mean_ms": 143.04479499951412,
+          "p50_ms": 132.0254999991448,
+          "p95_ms": 189.99843999717996,
+          "fps": 6.990817107350161
+        },
+        "ppe": {
+          "mean_ms": 138.42284000011205,
+          "p50_ms": 131.43384999966656,
+          "p95_ms": 191.41986499998893,
+          "fps": 7.22424131739524
+        }
+      },
+      "report_path": "C:\\projeto-tcc\\projeto-tcc\\runs\\tcc-review\\benchmark-pt.json"
+    },
+    "int8": {
+      "kind": "cascade_benchmark",
+      "environment": {
+        "timestamp_utc": "2026-09-23T16:45:45.909468+00:00",
+        "python": "3.12.14",
+        "platform": "Windows-11-10.0.26200-SP0",
+        "processor": "Intel64 Family 6 Model 186 Stepping 3, GenuineIntel",
+        "device": "cpu",
+        "versions": {
+          "ultralytics": "8.3.203",
+          "torch": "2.8.0",
+          "numpy": "2.2.6",
+          "onnxruntime": "1.22.1",
+          "openvino": "2025.4.1",
+          "nncf": "2.19.0",
+          "tensorrt": null
+        }
+      },
+      "config": {
+        "model": "models/yolo11n.pt",
+        "source_type": "video_or_stream",
+        "source_file": "C:\\projeto-tcc\\projeto-tcc\\runs\\tcc-review\\benchmark.avi",
+        "imgsz": 640,
+        "requested_imgsz": 640,
+        "ppe_model": "models/ppe/best_int8_openvino_model",
+        "ppe_imgsz": 640,
+        "ppe_device": "cpu",
+        "confidence": 0.4,
+        "iou": 0.45,
+        "warmup": 10,
+        "requested_frames": 40,
+        "measured_frames": 40
+      },
+      "timings": {
+        "detector_call": {
+          "mean_ms": 244.05396999991353,
+          "p50_ms": 248.08335000125226,
+          "p95_ms": 274.4907900012549,
+          "fps": 4.097454345857821
+        },
+        "pipeline": {
+          "mean_ms": 244.30202749990713,
+          "p50_ms": 248.34605000069132,
+          "p95_ms": 274.7109500010992,
+          "fps": 4.093293904408469
+        },
+        "capture_pipeline_render": {
+          "mean_ms": 247.9229800000212,
+          "p50_ms": 251.98610000006738,
+          "p95_ms": 277.7568149982471,
+          "fps": 4.0335107298238935
+        }
+      },
+      "scope": {
+        "detector_call": "Soma das chamadas predict de pessoa e EPI; EPI executa somente quando há pessoa.",
+        "pipeline": "Processamento do frame e regras; exclui captura, renderização e UI.",
+        "capture_pipeline_render": "Captura/decodificação, pipeline e renderização; exclui UI, disco e carregamento do modelo.",
+        "stage_timings": "Person inclui todos os frames medidos; PPE inclui somente frames em que o segundo estágio executou, sem zeros de frames pulados."
+      },
+      "accuracy": "Não medida. Benchmark de latência não estima mAP; use validate com dataset anotado.",
+      "ppe_executed_frames": 40,
+      "ppe_skipped_frames": 0,
+      "stage_timings": {
+        "person": {
+          "mean_ms": 164.13209999991523,
+          "p50_ms": 166.45054999935383,
+          "p95_ms": 187.73505500212195,
+          "fps": 6.092653417585692
+        },
+        "ppe": {
+          "mean_ms": 79.92186999999831,
+          "p50_ms": 79.96015000026091,
+          "p95_ms": 86.44684499922731,
+          "fps": 12.512219746610299
+        }
+      },
+      "report_path": "C:\\projeto-tcc\\projeto-tcc\\runs\\tcc-review\\benchmark-int8.json"
+    }
+  },
+  "verification": {
+    "date": "2026-09-24",
+    "pytest": {
+      "passed": 428,
+      "failed": 0,
+      "seconds": 12.5,
+      "command": "python -X utf8 -m pytest -q -p no:cacheprovider"
+    },
+    "pip_check": "No broken requirements found.",
+    "compileall": "src scripts tests: passed",
+    "external_messages_sent": false,
+    "physical_webcam_tested": false,
+    "rtsp_tested": false,
+    "image_smoke": {
+      "frames": 1,
+      "ppe_executed_frames": 1,
+      "ppe_skipped_frames": 0,
+      "person_device": "cpu",
+      "ppe_device": "cpu",
+      "person_model": "models/yolo11n.pt",
+      "ppe_model": "models/ppe/best.pt",
+      "observations_by_status": {
+        "ok": 1
+      },
+      "events_saved": [],
+      "elapsed_seconds": 0.32868909999888274,
+      "output": "C:\\projeto-tcc\\projeto-tcc\\runs\\tcc-review\\image.jsonl",
+      "snapshot": "C:\\projeto-tcc\\projeto-tcc\\runs\\tcc-review\\image-detected.jpg",
+      "event_timing_warning": "",
+      "retention_warning": "",
+      "note": "Contagens por frame; OK significa EPIs detectados, não certificação de segurança. Sem envio externo."
+    },
+    "video_smoke": {
+      "frames": 32,
+      "ppe_executed_frames": 30,
+      "ppe_skipped_frames": 2,
+      "person_device": "cpu",
+      "ppe_device": "cpu",
+      "person_model": "models/yolo11n.pt",
+      "ppe_model": "models/ppe/best.pt",
+      "observations_by_status": {
+        "ok": 30
+      },
+      "events_saved": [],
+      "elapsed_seconds": 7.725950299998658,
+      "output": "C:\\projeto-tcc\\projeto-tcc\\runs\\tcc-review\\video.jsonl",
+      "snapshot": "C:\\projeto-tcc\\projeto-tcc\\runs\\tcc-review\\video-detected.jpg",
+      "event_timing_warning": "",
+      "retention_warning": "",
+      "note": "Contagens por frame; OK significa EPIs detectados, não certificação de segurança. Sem envio externo."
+    },
+    "negative_video_smoke": {
+      "frames": 32,
+      "ppe_executed_frames": 32,
+      "ppe_skipped_frames": 0,
+      "person_device": "cpu",
+      "ppe_device": "cpu",
+      "person_model": "models/yolo11n.pt",
+      "ppe_model": "models/ppe/best.pt",
+      "observations_by_status": {
+        "unsafe": 32
+      },
+      "events_saved": [
+        "e509e8e4-2449-49d4-9562-028b0a81d991"
+      ],
+      "elapsed_seconds": 6.9877985000021,
+      "output": "C:\\projeto-tcc\\projeto-tcc\\runs\\tcc-review\\negative-video.jsonl",
+      "snapshot": "C:\\projeto-tcc\\projeto-tcc\\runs\\tcc-review\\negative-video.jpg",
+      "event_timing_warning": "",
+      "retention_warning": "",
+      "note": "Contagens por frame; OK significa EPIs detectados, não certificação de segurança. Sem envio externo."
+    }
+  },
+  "benchmark_scope_clarification": "Capture includes reading and decoding the local AVI. The older raw scope label excluding disk means result writes only; timings include input reads."
+}

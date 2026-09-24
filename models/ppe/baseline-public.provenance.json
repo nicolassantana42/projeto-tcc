@@ -1,0 +1,9 @@
+{
+  "repository": "baskarmother/yolov8-ppe-construction",
+  "revision": "3213ed51de90cbc76e577e6944e84f7c74343526",
+  "url": "https://huggingface.co/baskarmother/yolov8-ppe-construction/resolve/3213ed51de90cbc76e577e6944e84f7c74343526/best.pt",
+  "license_declared_by_author": "MIT",
+  "sha256": "8714b4b2bbde95b3a07dcdbe873995e34742b5ce628464a4da232721d4691ffe",
+  "role": "public pretrained baseline, not trained by this TCC",
+  "model_card": "https://huggingface.co/baskarmother/yolov8-ppe-construction"
+}
