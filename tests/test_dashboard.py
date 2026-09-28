@@ -146,18 +146,15 @@ def element(app, kind, label):
     return next(item for item in getattr(app, kind) if item.label == label)
 
 
-def configure_camera(app, *, telegram=False):
+def configure_camera(app, *, n8n=False):
     for label, value in {
         "Identificador da câmera": "entrada-07",
         "Nome da câmera": "Câmera da entrada",
         "Local / setor": "Unidade 2 • Galpão A",
         "URL do webhook n8n": "https://n8n.example.com/webhook/FAKE_TEST_WEBHOOK_NOT_REAL",
-        "Chat ID de destino (opcional)": "-123456789",
-        "Access token OAuth2 SMTP": "FAKE_OAUTH_TEST_SECRET",
-        "Senha de aplicativo SMTP": "FAKE_SMTP_TEST_SECRET",
     }.items():
         element(app, "text_input", label).set_value(value)
-    element(app, "checkbox", "Ativar Telegram para novas ocorrências").set_value(telegram)
+    element(app, "checkbox", "Ativar envio de ocorrências ao n8n").set_value(n8n)
     element(app, "selectbox", "Quando registrar uma ocorrência").select("person")
     button(app, "Salvar configurações").click().run()
     assert_no_exception(app)
@@ -171,37 +168,33 @@ def test_initial_screen_explains_capture_and_channels_stay_disabled(dashboard):
     assert any("As pessoas detectadas aparecem aqui" in info.value for info in app.info)
     assert app.session_state["runtime"] is None
     assert button(app, "Salvar imagem agora").disabled
-    assert button(app, "Enviar teste aos canais ativos").disabled
-    assert not app.session_state["telegram_config"].enabled
-    assert not app.session_state["email_config"].enabled
+    assert button(app, "Enviar teste ao n8n").disabled
+    assert not app.session_state["n8n_config"].enabled
     assert element(app, "radio", "Finalidade do modelo").value == "EPI treinado"
     assert not element(app, "checkbox", "Exibir painel completo").value
     assert app.session_state["alert_settings"]["trigger"] == "ppe"
 
 
 def test_settings_survive_restart_without_secrets_or_channel_activation(dashboard):
-    configure_camera(dashboard, telegram=True)
-    assert dashboard.session_state["telegram_config"].enabled
-    assert not button(dashboard, "Enviar teste aos canais ativos").disabled
+    configure_camera(dashboard, n8n=True)
+    assert dashboard.session_state["n8n_config"].enabled
+    assert not button(dashboard, "Enviar teste ao n8n").disabled
     settings_file = alert_panels.reports_root() / "settings.json"
     raw = settings_file.read_text(encoding="utf-8")
     settings = json.loads(raw)
     assert settings["camera_id"] == "entrada-07"
     assert settings["location"] == "Unidade 2 • Galpão A"
-    assert settings["telegram_chat_id"] == "-123456789"
     assert set(settings) == set(alert_panels.DEFAULTS)
-    for secret in ("FAKE_TEST_WEBHOOK", "FAKE_OAUTH_TEST_SECRET", "FAKE_SMTP_TEST_SECRET"):
+    for secret in ("FAKE_TEST_WEBHOOK",):
         assert secret not in raw
     assert not list((settings_file.parent / "occurrences").glob("*/event.json"))
 
     restarted = AppTest.from_file(str(APP_PATH), default_timeout=15).run()
     assert_no_exception(restarted)
     assert restarted.session_state["alert_settings"]["location"] == settings["location"]
-    assert restarted.session_state["telegram_config"].webhook_url == ""
-    assert restarted.session_state["email_config"].password == ""
-    assert restarted.session_state["email_config"].access_token == ""
-    assert not restarted.session_state["telegram_config"].enabled
-    assert button(restarted, "Enviar teste aos canais ativos").disabled
+    assert restarted.session_state["n8n_config"].webhook_url == ""
+    assert not restarted.session_state["n8n_config"].enabled
+    assert button(restarted, "Enviar teste ao n8n").disabled
 
 
 @pytest.fixture
@@ -218,7 +211,7 @@ def detected_dashboard(dashboard, monkeypatch):
             assert image.shape == frame.shape
             return [Detection(0, "person", .91, (50, 20, 150, 185))]
 
-    class FakeTelegramSender:
+    class FakeN8nSender:
         def __init__(self, config):
             assert config.enabled
 
@@ -244,14 +237,14 @@ def detected_dashboard(dashboard, monkeypatch):
     monkeypatch.setattr(VideoSource, "read", lambda capture: frame.copy())
     monkeypatch.setattr(VideoSource, "close", lambda capture: closed.append(capture.source))
     monkeypatch.setattr(EventService, "process", deterministic_process)
-    monkeypatch.setattr(alert_panels, "TelegramSender", FakeTelegramSender)
+    monkeypatch.setattr(alert_panels, "N8nWebhookSender", FakeN8nSender)
     element(dashboard, "radio", "Finalidade do modelo").set_value("Demo COCO").run()
     yield dashboard, opened, closed, sent
 
 
-def test_detection_saves_annotated_occurrence_with_location_and_mock_telegram(detected_dashboard):
+def test_detection_saves_annotated_occurrence_with_location_and_mock_n8n(detected_dashboard):
     app, opened, closed, sent = detected_dashboard
-    configure_camera(app, telegram=True)
+    configure_camera(app, n8n=True)
     app.selectbox(key="source_type").select("Arquivo de vídeo").run()
     element(app, "radio", "Abrir vídeo").set_value("Caminho no computador").run()
     element(app, "text_input", "Caminho do vídeo").set_value("fixture-only.avi")
@@ -282,7 +275,7 @@ def test_detection_saves_annotated_occurrence_with_location_and_mock_telegram(de
     assert event["location"] == "Unidade 2 • Galpão A"
     assert event["counts"] == {"person": 1}
     assert event["detections"][0]["confidence"] == pytest.approx(.91)
-    assert event["deliveries"]["telegram"]["status"] == "accepted"
+    assert event["deliveries"]["n8n"]["status"] == "accepted"
     stored_image = cv2.imread(event["snapshot_path"])
     assert stored_image is not None and stored_image.shape[0] > 200
     assert np.std(stored_image[:200]) > 0  # Actual annotation, not the flat input.
@@ -341,7 +334,7 @@ def test_storage_failure_is_visible_and_detection_continues(detected_dashboard, 
 
 def test_connection_test_persists_test_image_and_mock_channel_status(detected_dashboard, monkeypatch):
     app, opened, _, sent = detected_dashboard
-    configure_camera(app, telegram=True)
+    configure_camera(app, n8n=True)
     dispatchers = []
     dispatcher_class = alert_panels.NotificationDispatcher
 
@@ -351,7 +344,7 @@ def test_connection_test_persists_test_image_and_mock_channel_status(detected_da
         return dispatcher
 
     monkeypatch.setattr(alert_panels, "NotificationDispatcher", tracked_dispatcher)
-    button(app, "Enviar teste aos canais ativos").click().run()
+    button(app, "Enviar teste ao n8n").click().run()
     assert_no_exception(app)
     assert not app.error
     assert len(dispatchers) == 1
@@ -363,7 +356,7 @@ def test_connection_test_persists_test_image_and_mock_channel_status(detected_da
     assert event["location"] == "Unidade 2 • Galpão A"
     assert "Teste de conexão" in event["reasons"][0]
     assert event["detections"] == []
-    assert event["deliveries"]["telegram"]["status"] == "accepted"
+    assert event["deliveries"]["n8n"]["status"] == "accepted"
 
 
 @pytest.mark.parametrize("negative", [False, True])

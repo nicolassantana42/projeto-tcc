@@ -1,25 +1,19 @@
-"""Opt-in notification transports and a bounded, in-memory delivery queue.
+"""Opt-in n8n webhook delivery and a bounded, in-memory queue.
 
-Successful sends mean that the provider accepted the message, never that a
-person received or read it. No automatic retry is made: a timeout may happen
-after the provider accepted a message. Credentials and remote error bodies
-are deliberately excluded from persisted delivery details.
+Successful sends mean the webhook accepted the payload, not that Telegram,
+e-mail or other downstream channels completed delivery. Credentials and
+remote error bodies are deliberately excluded from persisted delivery details.
 """
 
 from __future__ import annotations
 
-import base64
 import copy
 import io
 import math
 import queue
 import re
-import smtplib
-import ssl
 import threading
 from dataclasses import dataclass, field
-from email.message import EmailMessage
-from email.utils import formatdate, make_msgid, parseaddr
 from pathlib import Path
 from typing import Any, Mapping, Protocol
 from urllib.parse import urlparse
@@ -31,24 +25,18 @@ from PIL import Image, UnidentifiedImageError
 _ERRORS = {
     "disabled": "Canal desativado; nenhum envio realizado.",
     "snapshot": "Snapshot local ausente, inválido ou grande demais para envio.",
-    "webhook_timeout": "Tempo limite do webhook n8n; resultado incerto. Verifique o Telegram antes de reenviar.",
+    "webhook_timeout": "Tempo limite do webhook n8n; resultado incerto. Verifique a automação antes de reenviar.",
     "webhook_network": "Falha de conexão com o webhook n8n; verifique a rede e o fluxo antes de reenviar.",
     "webhook_auth": "O webhook n8n recusou a autenticação. Revise a URL e credenciais do fluxo.",
     "webhook_rate": "O webhook n8n limitou os envios. Aguarde e revise o intervalo entre alertas.",
-    "webhook_rejected": "O webhook n8n recusou a solicitação. Revise a URL e o fluxo de Telegram.",
+    "webhook_rejected": "O webhook n8n recusou a solicitação. Revise a URL e o fluxo.",
     "webhook_response": "O webhook n8n retornou resposta sem confirmação válida de aceitação.",
-    "email_auth": "SMTP recusou a autenticação. Revise credenciais, token e permissão SMTP AUTH.",
-    "email_tls": "Não foi possível estabelecer TLS com o servidor SMTP.",
-    "email_recipient": "O servidor SMTP recusou o destinatário.",
-    "email_timeout": "Tempo limite do SMTP; resultado incerto. Verifique a caixa antes de reenviar.",
-    "email_network": "Falha no envio SMTP. Revise servidor e conexão; verifique a caixa antes de reenviar.",
     "queue_full": "queue_full: fila de alertas cheia; evento salvo, mas envio não agendado.",
     "closed": "dispatcher_closed: sessão encerrada; envio não agendado.",
     "unknown": "Falha no canal de alerta; detalhes remotos omitidos para proteger credenciais.",
 }
 _MAX_PHOTO_BYTES = 10_000_000
 _HTTP_TIMEOUT = (5.0, 15.0)
-_SMTP_TIMEOUT = 15.0
 _ACCEPTED_DETAIL = "Aceito pelo provedor; entrega e leitura não confirmadas."
 
 
@@ -62,16 +50,6 @@ class NotificationError(RuntimeError):
 
 def _has_control(value: str) -> bool:
     return any(ord(character) < 32 or ord(character) == 127 for character in value)
-
-
-def _mailbox(value: str) -> bool:
-    """Require a single bare mailbox, excluding address lists/header injection."""
-    if not isinstance(value, str) or _has_control(value):
-        return False
-    name, address = parseaddr(value)
-    return not name and address == value and bool(
-        re.fullmatch(r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?\.[A-Za-z]{2,}", value)
-    )
 
 
 def _webhook_url(value: str) -> bool:
@@ -88,61 +66,15 @@ def _webhook_url(value: str) -> bool:
 
 
 @dataclass(frozen=True)
-class TelegramConfig:
-    """Telegram alerts are delivered via an n8n webhook; no bot token in this app."""
-
+class N8nConfig:
     enabled: bool = False
     webhook_url: str = field(default="", repr=False)
-    chat_id: str = field(default="", repr=False)
 
     def validate(self) -> None:
         if not self.enabled:
             return
         if not _webhook_url(self.webhook_url):
             raise ValueError("Informe a URL HTTPS do webhook n8n (HTTP somente em localhost).")
-        if self.chat_id and not re.fullmatch(r"-?[1-9][0-9]*|@[A-Za-z][A-Za-z0-9_]{4,31}", self.chat_id):
-            raise ValueError("Informe o Chat ID numérico, o canal (@nome) ou deixe vazio se o n8n já define o destino.")
-
-
-@dataclass(frozen=True)
-class EmailConfig:
-    enabled: bool = False
-    host: str = ""
-    port: int = 587
-    username: str = field(default="", repr=False)
-    password: str = field(default="", repr=False)
-    sender: str = field(default="", repr=False)
-    recipient: str = field(default="", repr=False)
-    auth_mode: str = "password"
-    access_token: str = field(default="", repr=False)
-    security: str = "starttls"
-
-    def validate(self) -> None:
-        if not self.enabled:
-            return
-        if not self.host or not re.fullmatch(r"[A-Za-z0-9.-]+", self.host):
-            raise ValueError("Informe somente o hostname do servidor SMTP.")
-        if type(self.port) is not int or not 1 <= self.port <= 65535:
-            raise ValueError("A porta SMTP deve estar entre 1 e 65535.")
-        if self.security not in {"starttls", "ssl"}:
-            raise ValueError("O envio de e-mail exige STARTTLS ou SSL/TLS.")
-        if self.auth_mode not in {"password", "oauth2"}:
-            raise ValueError("Selecione autenticação por senha ou OAuth2.")
-        if not self.username or _has_control(self.username):
-            raise ValueError("Informe um usuário SMTP válido.")
-        if not _mailbox(self.sender) or not _mailbox(self.recipient):
-            raise ValueError("Informe um único e-mail válido para remetente e destinatário.")
-        host = self.host.lower().rstrip(".")
-        microsoft = any(host == domain or host.endswith("." + domain) for domain in (
-            "outlook.com", "office365.com", "outlook.office.com", "hotmail.com", "live.com",
-        ))
-        if microsoft and self.auth_mode != "oauth2":
-            raise ValueError("Outlook/Microsoft 365 exige OAuth2 neste aplicativo; use um token de acesso SMTP.")
-        if self.auth_mode == "oauth2":
-            if not self.access_token or any(character.isspace() for character in self.access_token) or _has_control(self.access_token):
-                raise ValueError("Informe um token de acesso OAuth2 válido para SMTP.")
-        elif not self.password or _has_control(self.password):
-            raise ValueError("Informe uma senha SMTP válida.")
 
 
 def _plain(value: Any, limit: int = 160) -> str:
@@ -171,17 +103,11 @@ def event_caption(event: Mapping[str, Any]) -> str:
         f"Evento: {_plain(event.get('id'), 70)}",
         "Requer revisão humana; contagens não representam pessoas únicas.",
     ))
-    # Conservative UTF-16 bound also works when location/reasons contain emoji.
     return text.encode("utf-16-le")[:2048].decode("utf-16-le", errors="ignore")
 
 
 def _snapshot_jpeg(event: Mapping[str, Any]) -> bytes:
-    """Create a small upload copy without editing the retained evidence.
-
-    Downstream Telegram limits <=10 MB, width + height <=10000 and aspect ratio <=20.
-    A 1920 px thumbnail satisfies dimensions; extreme aspect ratios are padded.
-    Metadata/EXIF is not copied into the upload.
-    """
+    """Create a small upload copy without editing the retained evidence."""
     try:
         path = Path(event.get("snapshot_path", ""))
         if not path.is_absolute() or not path.is_file() or path.stat().st_size > 50_000_000:
@@ -218,7 +144,11 @@ class DeliveryStore(Protocol):
     def set_delivery(self, event_id: str, channel: str, status: str, detail: str = "") -> Any: ...
 
 
-def _webhook_event_fields(event: Mapping[str, Any], chat_id: str) -> dict[str, str]:
+def _webhook_event_fields(event: Mapping[str, Any]) -> dict[str, str]:
+    reasons = event.get("reasons") or []
+    if isinstance(reasons, str):
+        reasons = [reasons]
+    counts = event.get("counts") or {}
     fields = {
         "event_id": _plain(event.get("id"), 70),
         "camera_id": _plain(event.get("camera_id"), 80),
@@ -228,21 +158,15 @@ def _webhook_event_fields(event: Mapping[str, Any], chat_id: str) -> dict[str, s
         "kind": _plain(event.get("kind"), 40),
         "model_mode": _plain(event.get("model_mode"), 60),
         "caption": event_caption(event),
+        "reasons": _plain("; ".join(str(item) for item in reasons), 300),
     }
-    if chat_id:
-        fields["chat_id"] = chat_id
-    reasons = event.get("reasons") or []
-    if isinstance(reasons, str):
-        reasons = [reasons]
-    fields["reasons"] = _plain("; ".join(str(item) for item in reasons), 300)
-    counts = event.get("counts") or {}
     if isinstance(counts, Mapping):
         fields["counts"] = _plain(", ".join(f"{label}: {count}" for label, count in counts.items()), 150)
     return fields
 
 
-class TelegramSender:
-    def __init__(self, config: TelegramConfig) -> None:
+class N8nWebhookSender:
+    def __init__(self, config: N8nConfig) -> None:
         config.validate()
         self.config = config
         self._session = requests.Session()
@@ -254,7 +178,7 @@ class TelegramSender:
         try:
             response = self._session.post(
                 self.config.webhook_url.strip(),
-                data=_webhook_event_fields(event, self.config.chat_id),
+                data=_webhook_event_fields(event),
                 files={"photo": ("safeguard-event.jpg", photo, "image/jpeg")},
                 timeout=_HTTP_TIMEOUT,
                 allow_redirects=False,
@@ -277,7 +201,7 @@ class TelegramSender:
                     raise NotificationError("webhook_response")
                 if isinstance(payload, dict) and payload.get("accepted") is False:
                     raise NotificationError("webhook_response")
-            return "Aceito pelo webhook n8n; entrega ao Telegram não confirmada neste aplicativo."
+            return "Aceito pelo webhook n8n; canais downstream não confirmados neste aplicativo."
         except NotificationError:
             raise
         except requests.Timeout:
@@ -291,75 +215,8 @@ class TelegramSender:
         self._session.close()
 
 
-class EmailSender:
-    def __init__(self, config: EmailConfig) -> None:
-        config.validate()
-        self.config = config
-
-    def send(self, event: Mapping[str, Any]) -> str:
-        if not self.config.enabled:
-            raise NotificationError("disabled")
-        message = EmailMessage()
-        message["Subject"] = "SafeGuard | Evento de monitoramento"
-        message["From"] = self.config.sender
-        message["To"] = self.config.recipient
-        message["Date"] = formatdate(localtime=False)
-        message["Message-ID"] = make_msgid()
-        message.set_content(event_caption(event))
-        message.add_attachment(_snapshot_jpeg(event), maintype="image", subtype="jpeg", filename="safeguard-event.jpg")
-        context = ssl.create_default_context()
-        client = None
-        try:
-            if self.config.security == "ssl":
-                client = smtplib.SMTP_SSL(self.config.host, self.config.port, timeout=_SMTP_TIMEOUT, context=context)
-                client.ehlo()
-            else:
-                client = smtplib.SMTP(self.config.host, self.config.port, timeout=_SMTP_TIMEOUT)
-                client.ehlo()
-                client.starttls(context=context)
-                client.ehlo()
-            if self.config.auth_mode == "oauth2":
-                auth = f"user={self.config.username}\x01auth=Bearer {self.config.access_token}\x01\x01"
-                encoded = base64.b64encode(auth.encode("utf-8")).decode("ascii")
-                code, _ = client.docmd("AUTH", "XOAUTH2 " + encoded)
-                if code != 235:
-                    raise NotificationError("email_auth")
-            else:
-                client.login(self.config.username, self.config.password)
-            refused = client.send_message(message, from_addr=self.config.sender, to_addrs=[self.config.recipient])
-            if refused:
-                raise NotificationError("email_recipient")
-            return "Aceito pelo servidor SMTP; entrega e leitura não confirmadas."
-        except NotificationError:
-            raise
-        except smtplib.SMTPAuthenticationError:
-            raise NotificationError("email_auth") from None
-        except smtplib.SMTPRecipientsRefused:
-            raise NotificationError("email_recipient") from None
-        except (ssl.SSLError, smtplib.SMTPNotSupportedError):
-            raise NotificationError("email_tls") from None
-        except TimeoutError:
-            raise NotificationError("email_timeout") from None
-        except (smtplib.SMTPException, OSError):
-            raise NotificationError("email_network") from None
-        finally:
-            if client is not None:
-                # Closing the socket cannot turn an accepted DATA reply into a
-                # false failure because a later SMTP QUIT timed out.
-                try:
-                    client.close()
-                except Exception:
-                    pass
-
-
 class NotificationDispatcher:
-    """One daemon worker; each enabled channel is attempted once per event.
-
-    enqueue() never waits for network/queue capacity. close() stops accepting
-    new events but lets the worker drain accepted jobs, even after UI stop.
-    The queue is not durable across process exit; persisted pending entries
-    must be reviewed manually after a crash rather than retried silently.
-    """
+    """One daemon worker; each enabled channel is attempted once per event."""
 
     def __init__(self, senders: dict[str, Sender], store: DeliveryStore, max_queue: int = 20) -> None:
         if type(max_queue) is not int or max_queue < 1:
@@ -380,8 +237,6 @@ class NotificationDispatcher:
         try:
             self._store.set_delivery(event_id, channel, status, detail[:400])
         except Exception:
-            # A failed status write must not kill the worker or hide another
-            # channel's result. The UI can surface store_errors explicitly.
             self._counts["store_errors"] += 1
 
     def enqueue(self, event: Mapping[str, Any]) -> bool:
@@ -415,9 +270,6 @@ class NotificationDispatcher:
                 try:
                     event = self._queue.get(timeout=0.1)
                 except queue.Empty:
-                    # enqueue() may have accepted a job after get() timed out
-                    # and before close(). Recheck under the intake lock so
-                    # shutdown never abandons that already accepted job.
                     with self._lock:
                         if self._closing.is_set() and self._queue.empty():
                             return
@@ -451,7 +303,6 @@ class NotificationDispatcher:
                         pass
 
     def close(self, wait: bool = False, timeout: float = 5.0) -> bool:
-        """Stop intake; optionally wait at most timeout seconds for draining."""
         if timeout < 0 or not math.isfinite(timeout):
             raise ValueError("O tempo de espera deve ser finito e não negativo.")
         with self._lock:

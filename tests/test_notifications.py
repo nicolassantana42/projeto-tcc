@@ -1,10 +1,7 @@
-"""No test in this module contacts Telegram or any SMTP service."""
+"""No test in this module contacts n8n or any external network."""
 
-import base64
 import io
-import ssl
 import threading
-from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
@@ -13,20 +10,16 @@ from PIL import Image
 
 import safeguard.notifications as notifications
 from safeguard.notifications import (
-    EmailConfig,
-    EmailSender,
+    N8nConfig,
+    N8nWebhookSender,
     NotificationDispatcher,
     NotificationError,
-    TelegramConfig,
-    TelegramSender,
     event_caption,
 )
 
 
 WEBHOOK = "https://n8n.example.com/webhook/secret-path-segment"
 WEBHOOK_SECRET = "secret-path-segment"
-PASSWORD = "secret_smtp_password"
-ACCESS_TOKEN = "secret_access_token"
 
 
 @pytest.fixture(autouse=True)
@@ -35,8 +28,6 @@ def prohibit_real_network(monkeypatch):
         raise AssertionError("Network access is forbidden in notification tests.")
 
     monkeypatch.setattr(requests.sessions.Session, "request", forbidden)
-    monkeypatch.setattr(notifications.smtplib, "SMTP", forbidden)
-    monkeypatch.setattr(notifications.smtplib, "SMTP_SSL", forbidden)
 
 
 @pytest.fixture
@@ -62,7 +53,7 @@ def event(tmp_path):
 class FakeResponse:
     def __init__(self, status_code=200, payload=None):
         self.status_code = status_code
-        self.payload = payload if payload is not None else {"ok": True, "result": {"message_id": 42}}
+        self.payload = payload if payload is not None else {"ok": True}
         self.closed = False
 
     def json(self):
@@ -91,119 +82,31 @@ class FakeSession:
         self.closed = True
 
 
-def telegram_sender(monkeypatch, response=None, failure=None):
+def n8n_sender(monkeypatch, response=None, failure=None):
     session = FakeSession(response, failure)
     monkeypatch.setattr(notifications.requests, "Session", lambda: session)
-    return TelegramSender(TelegramConfig(True, WEBHOOK, "-100123456789")), session
+    return N8nWebhookSender(N8nConfig(True, WEBHOOK)), session
 
 
-def email_config(**changes):
-    return replace(EmailConfig(
-        enabled=True, host="smtp.example.com", username="sender@example.com",
-        password=PASSWORD, sender="sender@example.com", recipient="security@example.com",
-    ), **changes)
+def test_disabled_config_requires_nothing_and_hides_webhook_url():
+    N8nConfig().validate()
+    assert WEBHOOK not in repr(N8nConfig(True, WEBHOOK))
 
 
-class FakeSMTP:
-    def __init__(self, failure_at=None, failure=None, auth_code=235, refused=None):
-        self.operations = []
-        self.failure_at = failure_at
-        self.failure = failure
-        self.auth_code = auth_code
-        self.refused = refused or {}
-        self.message = None
-        self.closed = False
-
-    def _call(self, name, *args, **kwargs):
-        self.operations.append((name, args, kwargs))
-        if self.failure_at == name:
-            raise self.failure
-
-    def ehlo(self):
-        self._call("ehlo")
-        return 250, b"ok"
-
-    def starttls(self, **kwargs):
-        self._call("starttls", **kwargs)
-        return 220, b"ok"
-
-    def login(self, *args):
-        self._call("login", *args)
-
-    def docmd(self, *args):
-        self._call("docmd", *args)
-        return self.auth_code, b"Provider text must never be logged"
-
-    def send_message(self, message, **kwargs):
-        self._call("send_message", **kwargs)
-        self.message = message
-        return self.refused
-
-    def close(self):
-        self._call("close")
-        self.closed = True
-
-
-def smtp_factory(monkeypatch, client, secure=False):
-    calls = []
-
-    def factory(*args, **kwargs):
-        calls.append((args, kwargs))
-        return client
-
-    monkeypatch.setattr(notifications.smtplib, "SMTP_SSL" if secure else "SMTP", factory)
-    return calls
-
-
-def test_disabled_configs_require_nothing_and_hide_credentials():
-    TelegramConfig().validate()
-    EmailConfig().validate()
-    assert WEBHOOK not in repr(TelegramConfig(True, WEBHOOK, "123456"))
-    assert PASSWORD not in repr(email_config())
-    assert "sender@example.com" not in repr(email_config())
-    assert ACCESS_TOKEN not in repr(email_config(access_token=ACCESS_TOKEN))
-
-
-@pytest.mark.parametrize("webhook_url,chat_id", [
-    ("http://evil.example.com/hook", "123"),
-    (WEBHOOK + "\n", "123"),
-    ("ftp://n8n.example/hook", "123"),
-    (WEBHOOK, "https://chat"),
-    (WEBHOOK, "123\r\nfoo"),
-    (WEBHOOK, "0"),
+@pytest.mark.parametrize("webhook_url", [
+    "http://evil.example.com/hook",
+    WEBHOOK + "\n",
+    "ftp://n8n.example/hook",
+    "",
 ])
-def test_telegram_config_rejects_malformed_credentials_without_echo(webhook_url, chat_id):
+def test_n8n_config_rejects_malformed_webhook_without_echo(webhook_url):
     with pytest.raises(ValueError) as caught:
-        TelegramConfig(True, webhook_url, chat_id).validate()
+        N8nConfig(True, webhook_url).validate()
     assert WEBHOOK_SECRET not in str(caught.value)
 
 
-@pytest.mark.parametrize("changes", [
-    {"recipient": "one@example.com,two@example.com"},
-    {"recipient": "x@example.com\r\nBcc: extra@example.com"},
-    {"sender": "Somebody <one@example.com>"},
-    {"username": "user\x01injection"},
-    {"host": "smtp://example.com"},
-    {"security": "none"},
-    {"port": 0},
-    {"port": True},
-    {"auth_mode": "unknown"},
-    {"auth_mode": "oauth2", "access_token": "token with space"},
-])
-def test_email_configuration_rejects_unsafe_values(changes):
-    with pytest.raises(ValueError):
-        email_config(**changes).validate()
-
-
-@pytest.mark.parametrize("host", ["smtp.office365.com", "smtp-mail.outlook.com", "SMTP.OFFICE365.COM."])
-def test_outlook_requires_oauth2(host):
-    with pytest.raises(ValueError, match="OAuth2"):
-        email_config(host=host).validate()
-    email_config(host=host, auth_mode="oauth2", access_token=ACCESS_TOKEN).validate()
-
-
-def test_telegram_sends_small_photo_with_event_location_and_safe_filename(monkeypatch, event):
-    sender, session = telegram_sender(monkeypatch)
+def test_n8n_sends_small_photo_with_event_location_and_safe_filename(monkeypatch, event):
+    sender, session = n8n_sender(monkeypatch)
     original = open(event["snapshot_path"], "rb").read()
     result = sender.send(event)
     assert "Aceito" in result and "n8n" in result
@@ -212,10 +115,9 @@ def test_telegram_sends_small_photo_with_event_location_and_safe_filename(monkey
     assert url == WEBHOOK
     assert args["timeout"] == (5.0, 15.0)
     assert args["allow_redirects"] is False
-    assert args["data"]["chat_id"] == "-100123456789"
     assert args["data"]["event_id"] == event["id"]
-    assert "Galpão A / entrada norte" in args["data"]["caption"]
-    assert "Portaria" in args["data"]["caption"]
+    assert "Galpão A / entrada norte" in args["data"]["location"]
+    assert "Portaria" in args["data"]["camera_name"]
     assert "Sem capacete" in args["data"]["reasons"]
     assert "2026-09-18T12:00:00+00:00" in args["data"]["timestamp_utc"]
     assert event["snapshot_path"] not in args["data"]["caption"]
@@ -239,7 +141,7 @@ def test_caption_remains_bounded_with_unicode_and_long_reasons(event):
 
 def test_oversized_dimensions_and_aspect_ratio_are_normalized(monkeypatch, event):
     Image.new("RGB", (12000, 30), (10, 20, 30)).save(event["snapshot_path"])
-    sender, session = telegram_sender(monkeypatch)
+    sender, session = n8n_sender(monkeypatch)
     sender.send(event)
     photo = Image.open(io.BytesIO(session.calls[0][1]["files"]["photo"][1]))
     assert max(photo.size) <= 1920
@@ -249,7 +151,7 @@ def test_oversized_dimensions_and_aspect_ratio_are_normalized(monkeypatch, event
 
 @pytest.mark.parametrize("variant", ["missing", "relative", "corrupt"])
 def test_invalid_local_snapshot_is_not_sent(monkeypatch, event, variant):
-    sender, session = telegram_sender(monkeypatch)
+    sender, session = n8n_sender(monkeypatch)
     if variant == "missing":
         event["snapshot_path"] += ".missing"
     elif variant == "relative":
@@ -271,8 +173,8 @@ def test_invalid_local_snapshot_is_not_sent(monkeypatch, event, variant):
     (FakeResponse(payload={"ok": False, "description": WEBHOOK_SECRET}), "webhook_response"),
     (FakeResponse(payload={"accepted": False, "detail": WEBHOOK_SECRET}), "webhook_response"),
 ])
-def test_telegram_rejects_provider_errors_without_leaking_or_retrying(monkeypatch, event, response, code):
-    sender, session = telegram_sender(monkeypatch, response=response)
+def test_n8n_rejects_provider_errors_without_leaking_or_retrying(monkeypatch, event, response, code):
+    sender, session = n8n_sender(monkeypatch, response=response)
     with pytest.raises(NotificationError) as caught:
         sender.send(event)
     assert caught.value.code == code
@@ -285,8 +187,8 @@ def test_telegram_rejects_provider_errors_without_leaking_or_retrying(monkeypatc
     (requests.Timeout(WEBHOOK), "webhook_timeout"),
     (requests.ConnectionError(WEBHOOK_SECRET), "webhook_network"),
 ])
-def test_telegram_network_errors_are_safe_and_not_retried(monkeypatch, event, failure, code):
-    sender, session = telegram_sender(monkeypatch, failure=failure)
+def test_n8n_network_errors_are_safe_and_not_retried(monkeypatch, event, failure, code):
+    sender, session = n8n_sender(monkeypatch, failure=failure)
     with pytest.raises(NotificationError) as caught:
         sender.send(event)
     assert caught.value.code == code
@@ -294,78 +196,9 @@ def test_telegram_network_errors_are_safe_and_not_retried(monkeypatch, event, fa
     assert len(session.calls) == 1
 
 
-def test_disabled_senders_do_not_attempt_network(event):
+def test_disabled_sender_does_not_attempt_network(event):
     with pytest.raises(NotificationError, match="desativado"):
-        TelegramSender(TelegramConfig()).send(event)
-    with pytest.raises(NotificationError, match="desativado"):
-        EmailSender(EmailConfig()).send(event)
-
-
-def test_email_uses_verified_starttls_before_auth_and_attaches_image(monkeypatch, event):
-    client = FakeSMTP()
-    factory_calls = smtp_factory(monkeypatch, client)
-    result = EmailSender(email_config()).send(event)
-    assert "Aceito" in result
-    names = [operation[0] for operation in client.operations]
-    assert names == ["ehlo", "starttls", "ehlo", "login", "send_message", "close"]
-    context = client.operations[1][2]["context"]
-    assert context.verify_mode == ssl.CERT_REQUIRED and context.check_hostname
-    assert factory_calls[0][1]["timeout"] == 15.0
-    assert "Galpão A / entrada norte" in client.message.get_body().get_content()
-    attachments = list(client.message.iter_attachments())
-    assert len(attachments) == 1
-    assert attachments[0].get_content_type() == "image/jpeg"
-    assert attachments[0].get_filename() == "safeguard-event.jpg"
-    assert client.closed
-
-
-def test_email_ssl_and_outlook_xoauth2_do_not_use_password_login(monkeypatch, event):
-    client = FakeSMTP()
-    calls = smtp_factory(monkeypatch, client, secure=True)
-    config = email_config(host="smtp.office365.com", security="ssl", port=465,
-                          auth_mode="oauth2", access_token=ACCESS_TOKEN)
-    EmailSender(config).send(event)
-    names = [operation[0] for operation in client.operations]
-    assert names == ["ehlo", "docmd", "send_message", "close"]
-    command = next(operation for operation in client.operations if operation[0] == "docmd")
-    assert command[1][0] == "AUTH"
-    mechanism, encoded = command[1][1].split(" ", 1)
-    assert mechanism == "XOAUTH2"
-    assert base64.b64decode(encoded).decode() == f"user=sender@example.com\x01auth=Bearer {ACCESS_TOKEN}\x01\x01"
-    assert calls[0][1]["context"].verify_mode == ssl.CERT_REQUIRED
-
-
-@pytest.mark.parametrize("failure_at,failure,code", [
-    ("starttls", notifications.smtplib.SMTPNotSupportedError(PASSWORD), "email_tls"),
-    ("login", notifications.smtplib.SMTPAuthenticationError(535, PASSWORD.encode()), "email_auth"),
-    ("send_message", TimeoutError(PASSWORD), "email_timeout"),
-    ("send_message", notifications.smtplib.SMTPRecipientsRefused({"security@example.com": (550, PASSWORD)}), "email_recipient"),
-])
-def test_email_error_messages_do_not_include_server_or_secret_text(monkeypatch, event, failure_at, failure, code):
-    client = FakeSMTP(failure_at=failure_at, failure=failure)
-    smtp_factory(monkeypatch, client)
-    with pytest.raises(NotificationError) as caught:
-        EmailSender(email_config()).send(event)
-    assert caught.value.code == code
-    assert PASSWORD not in str(caught.value)
-    assert client.closed
-    assert [operation[0] for operation in client.operations].count("send_message") <= 1
-
-
-def test_outlook_oauth_error_is_not_misreported_as_success(monkeypatch, event):
-    client = FakeSMTP(auth_code=334)
-    smtp_factory(monkeypatch, client)
-    with pytest.raises(NotificationError, match="autenticação"):
-        EmailSender(email_config(host="smtp.office365.com", auth_mode="oauth2", access_token=ACCESS_TOKEN)).send(event)
-    assert client.message is None and client.closed
-
-
-def test_smtp_recipient_refusal_dictionary_is_failure(monkeypatch, event):
-    client = FakeSMTP(refused={"security@example.com": (550, "denied")})
-    smtp_factory(monkeypatch, client)
-    with pytest.raises(NotificationError) as caught:
-        EmailSender(email_config()).send(event)
-    assert caught.value.code == "email_recipient"
+        N8nWebhookSender(N8nConfig()).send(event)
 
 
 class MemoryStore:
@@ -376,28 +209,20 @@ class MemoryStore:
         self.history.append((event_id, channel, status, detail))
 
 
-def test_dispatcher_independent_channels_safe_errors_and_no_retry(event):
+def test_dispatcher_records_n8n_failure_without_leaking_secrets(event):
     store = MemoryStore()
-    attempts = []
 
     def fail(item):
-        attempts.append("telegram")
         raise RuntimeError(WEBHOOK_SECRET)
 
-    def accept(item):
-        attempts.append("email")
-        return PASSWORD
-
-    dispatcher = NotificationDispatcher({"telegram": SimpleNamespace(send=fail), "email": SimpleNamespace(send=accept)}, store)
+    dispatcher = NotificationDispatcher({"n8n": SimpleNamespace(send=fail)}, store)
     assert dispatcher.enqueue(event)
     assert not dispatcher.enqueue(event)
     assert dispatcher.close(wait=True)
-    assert attempts == ["telegram", "email"]
-    assert {row[1]: row[2] for row in store.history} == {"telegram": "failed", "email": "accepted"}
-    assert WEBHOOK_SECRET not in repr(store.history) and PASSWORD not in repr(store.history)
+    assert {row[1]: row[2] for row in store.history} == {"n8n": "failed"}
+    assert WEBHOOK_SECRET not in repr(store.history)
     assert dispatcher.snapshot()["pending"] == 0
     assert dispatcher.snapshot()["failed"] == 1
-    assert dispatcher.snapshot()["accepted"] == 1
 
 
 def test_queue_full_is_explicit_and_close_preserves_pending_work(event):
@@ -410,7 +235,7 @@ def test_queue_full_is_explicit_and_close_preserves_pending_work(event):
         received.append(item["id"])
         return "accepted"
 
-    dispatcher = NotificationDispatcher({"telegram": SimpleNamespace(send=slow_send)}, store, max_queue=1)
+    dispatcher = NotificationDispatcher({"n8n": SimpleNamespace(send=slow_send)}, store, max_queue=1)
     try:
         assert dispatcher.enqueue(event)
         assert started.wait(timeout=1)
@@ -439,7 +264,7 @@ def test_queue_copies_event_before_caller_mutates_it(event):
         received.append(item["reasons"][:])
         return "accepted"
 
-    dispatcher = NotificationDispatcher({"telegram": SimpleNamespace(send=collect)}, MemoryStore())
+    dispatcher = NotificationDispatcher({"n8n": SimpleNamespace(send=collect)}, MemoryStore())
     try:
         assert dispatcher.enqueue(event)
         assert started.wait(timeout=1)
@@ -470,7 +295,7 @@ def test_close_drains_event_accepted_after_worker_queue_timeout(monkeypatch, eve
     monkeypatch.setattr(notifications.queue, "Queue", PausingQueue)
     received, store = [], MemoryStore()
     sender = SimpleNamespace(send=lambda item: received.append(item["id"]))
-    dispatcher = NotificationDispatcher({"telegram": sender}, store)
+    dispatcher = NotificationDispatcher({"n8n": sender}, store)
     try:
         assert timed_out.wait(timeout=1)
         assert dispatcher.enqueue(event)
@@ -486,12 +311,12 @@ def test_close_drains_event_accepted_after_worker_queue_timeout(monkeypatch, eve
         dispatcher.close(wait=True)
 
 
-def test_store_failure_is_visible_and_does_not_kill_other_channels(event):
+def test_store_failure_is_visible_and_does_not_kill_worker(event):
     def fail_store(*args, **kwargs):
         raise OSError("disk error")
 
     dispatcher = NotificationDispatcher(
-        {"telegram": SimpleNamespace(send=lambda item: "accepted")},
+        {"n8n": SimpleNamespace(send=lambda item: "accepted")},
         SimpleNamespace(set_delivery=fail_store),
     )
     assert dispatcher.enqueue(event)

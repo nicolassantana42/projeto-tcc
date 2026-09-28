@@ -1,7 +1,6 @@
-"""Occurrence history and notification setup; credentials stay out of disk settings."""
+"""Occurrence history and n8n integration setup; webhook URL stays out of disk settings."""
 from __future__ import annotations
 
-from dataclasses import asdict
 from datetime import datetime
 import json
 import os
@@ -13,9 +12,7 @@ import numpy as np
 import streamlit as st
 
 from safeguard.events import CameraContext, EventPolicy, EventStore
-from safeguard.notifications import (
-    EmailConfig, EmailSender, NotificationDispatcher, TelegramConfig, TelegramSender,
-)
+from safeguard.notifications import N8nConfig, N8nWebhookSender, NotificationDispatcher
 from safeguard.types import FrameResult
 
 
@@ -23,9 +20,6 @@ DEFAULTS = {
     "camera_id": "camera-01", "camera_name": "Câmera 01", "location": "",
     "save_enabled": True, "trigger": "ppe", "confirmation_seconds": 2.0,
     "cooldown_seconds": 60.0, "max_events": 500,
-    "telegram_chat_id": "", "email_host": "smtp-mail.outlook.com", "email_port": 587,
-    "email_username": "", "email_sender": "", "email_recipient": "",
-    "email_auth_mode": "oauth2", "email_security": "starttls",
 }
 
 
@@ -42,10 +36,6 @@ def load_settings() -> dict:
         EventPolicy(trigger=settings["trigger"], confirmation_seconds=settings["confirmation_seconds"],
                     cooldown_seconds=settings["cooldown_seconds"], max_events=settings["max_events"])
         CameraContext(settings["camera_id"], settings["camera_name"], settings["location"] or "Local não informado")
-        if settings["email_auth_mode"] not in {"password", "oauth2"} or settings["email_security"] not in {"starttls", "ssl"}:
-            return DEFAULTS.copy()
-        if not isinstance(settings["email_port"], int) or not 1 <= settings["email_port"] <= 65535:
-            return DEFAULTS.copy()
         if not .1 <= settings["confirmation_seconds"] <= 60 or not 1 <= settings["cooldown_seconds"] <= 86400:
             return DEFAULTS.copy()
         if not 10 <= settings["max_events"] <= 10000 or not isinstance(settings["save_enabled"], bool):
@@ -58,7 +48,7 @@ def load_settings() -> dict:
 
 
 def save_settings(settings: dict) -> None:
-    """Allowlist prevents tokens/passwords and activation flags from reaching disk."""
+    """Allowlist prevents webhook URLs and activation flags from reaching disk."""
     root = reports_root()
     root.mkdir(parents=True, exist_ok=True)
     payload = {key: settings[key] for key in DEFAULTS}
@@ -74,7 +64,7 @@ def save_settings(settings: dict) -> None:
 
 
 def _secret(section: str, key: str, fallback=""):
-    env_key = "N8N_TELEGRAM_WEBHOOK_URL" if (section, key) == ("telegram", "webhook_url") else f"{section}_{key}".upper()
+    env_key = "N8N_WEBHOOK_URL" if (section, key) == ("n8n", "webhook_url") else f"{section}_{key}".upper()
     if env_key in os.environ:
         return os.environ[env_key]
     try:
@@ -87,26 +77,8 @@ def _secret(section: str, key: str, fallback=""):
 def init_alert_settings():
     if "alert_settings" not in st.session_state:
         st.session_state.alert_settings = load_settings()
-    settings = st.session_state.alert_settings
-    if "telegram_config" not in st.session_state:
-        st.session_state.telegram_config = TelegramConfig(
-            webhook_url=str(_secret("telegram", "webhook_url")),
-            chat_id=str(_secret("telegram", "chat_id", settings["telegram_chat_id"])),
-        )
-    if "email_config" not in st.session_state:
-        values = {key: _secret("email", key, settings.get(f"email_{key}", "")) for key in
-                  ("host", "port", "username", "password", "sender", "recipient", "auth_mode", "access_token", "security")}
-        try:
-            values["port"] = int(values["port"])
-        except (TypeError, ValueError):
-            values["port"] = 587
-        if not 1 <= values["port"] <= 65535:
-            values["port"] = 587
-        for key, allowed in (("auth_mode", {"password", "oauth2"}), ("security", {"starttls", "ssl"})):
-            if values[key] not in allowed:
-                values[key] = DEFAULTS[f"email_{key}"]
-        values = {key: value if key == "port" else str(value) for key, value in values.items()}
-        st.session_state.email_config = EmailConfig(**values)
+    if "n8n_config" not in st.session_state:
+        st.session_state.n8n_config = N8nConfig(webhook_url=str(_secret("n8n", "webhook_url")))
 
 
 def event_store() -> EventStore:
@@ -125,26 +97,21 @@ def event_policy() -> EventPolicy:
 
 
 def configured_senders() -> dict:
-    channels = {}
-    telegram = st.session_state.telegram_config
-    email = st.session_state.email_config
-    if telegram.enabled:
-        telegram.validate()
-        channels["telegram"] = TelegramSender(telegram)
-    if email.enabled:
-        email.validate()
-        channels["email"] = EmailSender(email)
-    return channels
+    n8n = st.session_state.n8n_config
+    if not n8n.enabled:
+        return {}
+    n8n.validate()
+    return {"n8n": N8nWebhookSender(n8n)}
 
 
 def render_alert_settings(running: bool):
     settings = st.session_state.alert_settings
-    telegram, email = st.session_state.telegram_config, st.session_state.email_config
+    n8n = st.session_state.n8n_config
     st.subheader("Câmera, evidências e integrações")
-    st.caption("Preencha, salve e inicie o monitoramento. Tokens e senhas ficam somente nesta sessão, "
-               "ou podem ser carregados do arquivo local .streamlit/secrets.toml.")
+    st.caption("Preencha, salve e inicie o monitoramento. A URL do webhook n8n fica somente nesta sessão "
+               "ou pode ser carregada do arquivo local .streamlit/secrets.toml / variável N8N_WEBHOOK_URL.")
     if running:
-        st.info("Pare o monitoramento para alterar os destinos e a política de ocorrências.")
+        st.info("Pare o monitoramento para alterar a automação e a política de ocorrências.")
     with st.form("alert_configuration"):
         left, right = st.columns(2)
         with left:
@@ -168,27 +135,10 @@ def render_alert_settings(running: bool):
                    "os mais antigos são removidos quando o limite de armazenamento é atingido, preservando envios pendentes.")
         st.caption("Os segundos de confirmação e o horário do registro são da análise. Arquivos de vídeo não são reproduzidos "
                    "na velocidade original; esse tempo não mede a duração da presença na filmagem.")
-        st.markdown("#### Telegram (via n8n)")
-        telegram_enabled = st.checkbox("Ativar Telegram para novas ocorrências", value=telegram.enabled, disabled=running)
-        webhook_url = st.text_input("URL do webhook n8n", value=telegram.webhook_url, type="password", disabled=running)
-        chat_id = st.text_input("Chat ID de destino (opcional)", value=telegram.chat_id, disabled=running,
-                                help="Repasse ao fluxo n8n quando o destino não estiver fixo no workflow.")
-        st.caption("Configure no n8n um webhook que receba foto + metadados e envie ao Telegram (sendPhoto). "
-                   "O token do bot fica somente no n8n, não neste aplicativo.")
-        with st.expander("E-mail / Outlook (opcional)"):
-            email_enabled = st.checkbox("Ativar e-mail para novas ocorrências", value=email.enabled, disabled=running)
-            host = st.text_input("Servidor SMTP", value=email.host, disabled=running)
-            port = st.number_input("Porta SMTP", min_value=1, max_value=65535, value=email.port, disabled=running)
-            security = st.selectbox("Criptografia", ["starttls", "ssl"], index=["starttls", "ssl"].index(email.security), disabled=running)
-            username = st.text_input("Usuário SMTP", value=email.username, disabled=running)
-            sender = st.text_input("E-mail remetente", value=email.sender, disabled=running)
-            recipient = st.text_input("E-mail destinatário", value=email.recipient, disabled=running)
-            auth_mode = st.selectbox("Autenticação", ["oauth2", "password"], index=["oauth2", "password"].index(email.auth_mode),
-                                     format_func=lambda value: "OAuth2 (Outlook / Microsoft 365)" if value == "oauth2" else "Senha de aplicativo (outros provedores)", disabled=running)
-            access_token = st.text_input("Access token OAuth2 SMTP", value=email.access_token, type="password", disabled=running)
-            password = st.text_input("Senha de aplicativo SMTP", value=email.password, type="password", disabled=running)
-            st.caption("Outlook usa OAuth2. Esta versão recebe um access token SMTP válido; login Microsoft e renovação "
-                       "automática ainda não estão integrados. Não use sua senha comum do Outlook aqui.")
+        st.markdown("#### Automação n8n")
+        n8n_enabled = st.checkbox("Ativar envio de ocorrências ao n8n", value=n8n.enabled, disabled=running)
+        webhook_url = st.text_input("URL do webhook n8n", value=n8n.webhook_url, type="password", disabled=running)
+        st.caption("Telegram, e-mail e demais canais ficam no fluxo n8n. Este aplicativo envia somente foto + metadados ao webhook.")
         submitted = st.form_submit_button("Salvar configurações", type="primary", disabled=running)
     if submitted:
         try:
@@ -196,28 +146,22 @@ def render_alert_settings(running: bool):
                 raise ValueError("Preencha identificador, nome da câmera e local / setor.")
             CameraContext(camera_id.strip(), camera_name.strip(), location.strip())
             EventPolicy(trigger, confirmation, cooldown, int(max_events))
-            next_telegram = TelegramConfig(telegram_enabled, webhook_url.strip(), chat_id.strip())
-            next_email = EmailConfig(enabled=email_enabled, host=host.strip(), port=int(port), username=username.strip(),
-                                     password=password, sender=sender.strip(), recipient=recipient.strip(),
-                                     auth_mode=auth_mode, access_token=access_token.strip(), security=security)
-            next_telegram.validate()
-            next_email.validate()
+            next_n8n = N8nConfig(n8n_enabled, webhook_url.strip())
+            next_n8n.validate()
             updated = {"camera_id": camera_id.strip(), "camera_name": camera_name.strip(), "location": location.strip(),
                        "save_enabled": save_enabled, "trigger": trigger, "confirmation_seconds": confirmation,
-                       "cooldown_seconds": cooldown, "max_events": int(max_events), "telegram_chat_id": chat_id.strip(),
-                       **{f"email_{key}": value for key, value in asdict(next_email).items() if f"email_{key}" in DEFAULTS}}
+                       "cooldown_seconds": cooldown, "max_events": int(max_events)}
             save_settings(updated)
             st.session_state.alert_settings = updated
-            st.session_state.telegram_config = next_telegram
-            st.session_state.email_config = next_email
-            st.success("Configurações salvas. Canais ativados valem para esta sessão; inicie a captura para usá-los.")
+            st.session_state.n8n_config = next_n8n
+            st.success("Configurações salvas. O envio ao n8n vale para esta sessão; inicie a captura para usá-lo.")
         except (ValueError, OSError) as error:
             st.error(str(error))
-    enabled = [name for name, config in (("Telegram", st.session_state.telegram_config), ("E-mail", st.session_state.email_config)) if config.enabled]
-    st.caption("Canais ativos nesta sessão: " + (", ".join(enabled) if enabled else "nenhum — imagens ficam somente no computador"))
-    if st.button("Enviar teste aos canais ativos", disabled=running or not enabled):
+    n8n_active = st.session_state.n8n_config.enabled
+    st.caption("Automação n8n nesta sessão: " + ("ativa" if n8n_active else "inativa — imagens ficam somente no computador"))
+    if st.button("Enviar teste ao n8n", disabled=running or not n8n_active):
         _send_test()
-    st.caption("O teste envia uma imagem de teste desenhada, com o nome/local configurados. Consulte o resultado na aba Ocorrências.")
+    st.caption("O teste envia uma imagem desenhada com o nome/local configurados. Consulte o resultado na aba Ocorrências.")
 
 
 def _send_test():
@@ -280,5 +224,6 @@ def render_occurrences():
             for channel, delivery in deliveries.items():
                 status = delivery.get("status", "")
                 labels = {"pending": "Na fila", "accepted": "Aceito pelo provedor", "failed": "Falhou", "queue_full": "Fila cheia"}
-                st.write(f"{channel}: {labels.get(status, status)} — {delivery.get('detail', '')}")
-            st.caption("Aceito pelo provedor confirma a resposta da API/SMTP; não confirma leitura ou entrega ao destinatário.")
+                label = "n8n" if channel == "n8n" else channel
+                st.write(f"{label}: {labels.get(status, status)} — {delivery.get('detail', '')}")
+            st.caption("Aceito pelo provedor confirma a resposta do webhook n8n; não confirma Telegram, e-mail ou leitura.")
