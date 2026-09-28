@@ -2,11 +2,13 @@
 
 Pipeline local para o TCC: **imagem/câmera → YOLO de pessoas → segundo YOLO de EPIs → decisão por pessoa → evidência**. A execução principal é pela CLI; a interface simples serve para visualizar o resultado.
 
-O primeiro estágio usa YOLO11n COCO. O segundo usa **YOLO11n ajustado localmente por 10 épocas no dataset público Construction-PPE**, em `models/ppe/best.pt`. Esse treinamento inicial substitui um candidato público YOLOv8n que apresentou desempenho insuficiente, especialmente para coletes. Ainda faltam validação no ambiente de uso e comparação controlada com YOLOv5. O mAP de **0,841 citado no artigo não está comprovado como resultado deste projeto**. [Experimentos e métricas medidos](docs/VALIDATION.md) · [Aderência aos documentos](docs/TCC_ALIGNMENT.md).
+O primeiro estágio usa YOLO11n COCO. O segundo usa **YOLO11n ajustado localmente por 10 épocas no dataset público RF100 Construction Safety**, em `models/ppe/absence.pt`. Ele reconhece capacete, colete, **sem capacete e sem colete**. O modelo anterior (`best.pt`, Construction-PPE) foi preservado para comparação. Ainda faltam validação no ambiente de uso e comparação controlada com YOLOv5. O mAP de **0,841 citado no artigo não está comprovado como resultado deste projeto**. [Experimentos e métricas medidos](docs/VALIDATION.md) · [Procedência dos novos dados e pesos](docs/ABSENCE_DATA.md).
 
-![Inferência real dos dois modelos em uma imagem de validação](docs/images/ppe-detection.jpg)
+![Inferência real com colete, ausência explícita e estado inconclusivo](docs/images/absence-detection.jpg)
 
-Exemplo real de pessoa, capacete e colete detectados na primeira imagem do split de validação em ordem alfabética (`image1010.jpg`, Construction-PPE). As porcentagens das caixas são confiança do modelo, não precisão medida no dataset. Consulte os erros e métricas agregados antes de interpretar esta imagem.
+Exemplo selecionado para demonstrar os três estados na imagem pública `ppe_0079` do val, não uma amostra para medir qualidade. À esquerda, o colete não foi reconhecido e a avaliação permanece inconclusiva; ao centro, há detecção explícita de ausência; à direita, capacete e colete associados. Fonte RF100 / Anonymous, espelho LibreYOLO, CC BY 4.0; [atribuição e limites](docs/ABSENCE_DATA.md). As porcentagens das caixas são confiança do modelo, não precisão medida.
+
+**Resultado atual no teste de 90 imagens:** colete com recall de 72,1% e precisão de 86,1%; sem colete com recall de 63,9% e precisão de 69,6%. Sem capacete ainda tem recall de apenas 25%. No teste antigo, o recall dessa ausência subiu de 12,5% para 25%, mas os falsos positivos passaram de 1 para 13. A detecção de ausência ainda exige melhoria e revisão humana; não está validada para fiscalização automática.
 
 ## Executar a detecção
 
@@ -29,13 +31,16 @@ python -m safeguard detect --source data/minha-imagem.jpg --show --snapshot repo
 Em um **clone novo**, pesos e dataset não vêm do Git. Prepare os dados e reproduza o treinamento, ou forneça seus próprios pesos EPI:
 
 ```bash
-python scripts/prepare_ppe.py --dataset
-python -m safeguard audit-data --data data/construction-ppe.yaml --require-test
-python -m safeguard train --model models/yolo11n.pt --data data/construction-ppe.yaml --epochs 10 --imgsz 416 --batch 8 --device cpu --name ppe_tcc
-python -m safeguard detect --source data/minha-imagem.jpg --ppe-model runs/train/ppe_tcc/weights/best.pt --show
+python -m safeguard download
+python scripts/prepare_absence_model.py
+python scripts/prepare_absence_data.py
+python scripts/prepare_absence_transfer.py
+python -m safeguard train --model models/ppe/absence-base.pt --data data/ppe-absence-transfer.yaml --epochs 10 --imgsz 416 --batch 8 --device cpu --freeze 10 --name ppe_absence
+python -m safeguard evaluate-cascade --ppe-model runs/train/ppe_absence/weights/best.pt --data data/ppe-absence.yaml --split val --output runs/absence-val.json
+python scripts/promote_absence_model.py --run-dir runs/train/ppe_absence
 ```
 
-O primeiro comando precisa de internet; o treino em CPU pode demorar. Conclua a avaliação descrita abaixo antes de interpretar os resultados. O preparo também disponibiliza o candidato externo `baseline-public.pt` para comparação; ele foi descartado como modelo principal, não é um substituto de qualidade equivalente. Para usar o caminho padrão em um clone novo, copie o modelo treinado conforme o [protocolo de ML](docs/ML.md#dataset-e-treinamento). Repetições do treino podem criar diretórios com sufixos; use o caminho indicado na execução.
+Os downloads precisam de internet; o treino medido levou cerca de 37 minutos nesta CPU. A promoção verifica hash e classes e recusa substituir pesos divergentes; ela não certifica precisão. Use o diretório efetivamente informado pelo treino (repetições podem criar sufixos). O candidato `absence-base.pt` é pré-treinado por terceiros e não equivale ao ajuste local. [Protocolo, avaliação e licenças](docs/ABSENCE_DATA.md).
 
 Para vídeo ou webcam:
 
@@ -56,7 +61,7 @@ O segundo YOLO executa uma vez no quadro completo **somente quando o primeiro en
 | `unsafe` | Classe negativa explícita, como `no_helmet` ou `no_vest`, associada sem ambiguidade; requer revisão. |
 | `uncertain` | Equipamento não detectado, associação ambígua, conflito ou pessoa cortada; insuficiente para concluir ausência. |
 
-Não detectar um capacete **não prova** que a pessoa esteja sem ele. Oclusão, distância e iluminação afetam a inferência. O escopo inicial cobre **capacete e colete**; outras classes dos pesos não ampliam automaticamente esse escopo. Construction-PPE possui `no_helmet`, mas não `no_vest`: nesses pesos, colete não detectado permanece inconclusivo. COCO sozinho detecta pessoas e objetos gerais, sem reconhecer EPIs.
+Não detectar um capacete **não prova** que a pessoa esteja sem ele. Oclusão, distância e iluminação afetam a inferência. O escopo cobre **capacete e colete**; outras classes dos pesos não ampliam automaticamente esse escopo. O novo modelo inclui `NO-Safety Vest`, normalizado para `no_vest`. Nos pesos antigos sem essa classe, a falta de uma caixa de colete permanece inconclusiva. COCO sozinho detecta pessoas e objetos gerais, sem reconhecer EPIs.
 
 `--snapshot` salva o último quadro anotado. `--save-events` registra somente observações `unsafe`: em vídeo, exige continuidade por 2 segundos da fonte e aplica intervalo de 60 segundos por sessão de câmera; em imagem estática, registra uma observação única, identificada assim no motivo.
 
@@ -65,8 +70,8 @@ As evidências ficam em `reports/occurrences/<UUID>/snapshot.jpg` e `event.json`
 ## Avaliar antes de concluir precisão
 
 ```bash
-python -m safeguard audit-data --data data/construction-ppe.yaml --require-test --output runs/dataset-audit.json
-python -m safeguard evaluate-cascade --data data/construction-ppe.yaml --split test --output runs/cascade-evaluation.json
+python -m safeguard audit-data --data data/ppe-absence.yaml --require-test --output runs/dataset-audit.json
+python -m safeguard evaluate-cascade --data data/ppe-absence.yaml --split test --output runs/cascade-evaluation.json
 ```
 
 O primeiro comando verifica dados e rótulos, incluindo duplicatas entre splits. O segundo mede **TP, FP, FN, precisão, recall e latência do fluxo completo** em limiares fixos. Ele não calcula mAP, não comprova que o dataset seja independente do treinamento do modelo público e não avalia a decisão de conformidade por pessoa. Anotações de caixas e anotações de estado são problemas diferentes.
@@ -79,9 +84,13 @@ Para treinamento próprio, mAP, matriz de confusão, curvas PR, calibração INT
 python run.py
 ```
 
-Abra **http://localhost:8501** e use a visualização de detecção. Histórico e integrações estão nas abas; **Exibir painel completo** acrescenta estatísticas e a composição visual anterior. Em **Alertas e integrações**, cadastre câmera/local, informe o token do bot e Chat ID, ative Telegram e salve antes de iniciar a captura. Canais começam desativados; salvar configurações não envia mensagens. A CLI funciona independentemente dessas configurações.
+Abra **http://localhost:8501**, escolha imagem, vídeo, webcam ou RTSP e clique **Iniciar**. O quadro mostra as caixas, e a tabela abaixo separa **Capacete / Colete** por pessoa: Detectado, Ausência explícita ou Inconclusivo. Histórico e integrações ficam nas abas; **Exibir painel completo** acrescenta estatísticas. Em **Alertas e integrações**, cadastre câmera/local, informe o token do bot e Chat ID, ative Telegram e salve antes de iniciar a captura. Canais começam desativados; salvar configurações não envia mensagens. A CLI funciona independentemente dessas configurações.
 
 Fotos podem ser consultadas em **Ocorrências**. Tokens digitados ficam na sessão; `reports/settings.json` guarda preferências sem credenciais. **Enviar teste aos canais ativos** envia uma mensagem real quando acionado. Outlook é opcional e exige token OAuth2 SMTP fornecido pelo operador; login e renovação Microsoft não estão implementados. [Guia de alertas](docs/ALERTS.md).
+
+![Monitor simples com inferência real do modelo de capacete e colete](docs/images/absence-monitor-ui.png)
+
+[Veja os campos de configuração do Telegram](docs/images/absence-telegram-ui.png). As capturas usam uma pasta de teste isolada; na execução normal, as imagens e seus registros ficam em `reports/occurrences/`.
 
 Metabase, N8N e frontend Next citados no roteiro **não estão implementados**. O envio atual vai diretamente à API do Telegram. A interface não substitui a validação de detecção solicitada pelo TCC.
 

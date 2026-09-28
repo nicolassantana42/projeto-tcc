@@ -178,7 +178,8 @@ def test_validation_generates_plots_prediction_json_and_numeric_metrics(monkeypa
     assert report["provenance"]["dataset_yaml"]["sha256"] == hashlib.sha256(dataset.read_bytes()).hexdigest()
 
 
-def test_training_uses_seed_local_dataset_and_no_implicit_amp_download(monkeypatch, tmp_path, dataset):
+@pytest.mark.parametrize("freeze", [None, 0, 10])
+def test_training_uses_seed_local_dataset_and_no_implicit_amp_download(monkeypatch, tmp_path, dataset, freeze):
     calls = {}
     fake = SimpleNamespace(trainer=SimpleNamespace())
 
@@ -199,7 +200,15 @@ def test_training_uses_seed_local_dataset_and_no_implicit_amp_download(monkeypat
     monkeypatch.setattr(ml, "load_yolo", lambda path: fake)
     initial_weights = tmp_path / "ppe.pt"
     initial_weights.write_bytes(b"test initial checkpoint")
-    report = ml.train_model(str(initial_weights), str(dataset), epochs=2, seed=17, project=str(tmp_path / "train"))
+    report = ml.train_model(str(initial_weights), str(dataset), epochs=2, seed=17,
+                            project=str(tmp_path / "train"), freeze=freeze)
+    if freeze is None:
+        assert "freeze" not in calls
+    else:
+        assert calls["freeze"] == freeze
+    assert report["config"]["freeze"] == freeze
+    persisted = json.loads(Path(report["report_path"]).read_text(encoding="utf-8"))
+    assert persisted["config"]["freeze"] == freeze
     assert calls["amp"] is False
     assert calls["seed"] == 17
     assert calls["epochs"] == 2
@@ -211,6 +220,17 @@ def test_training_uses_seed_local_dataset_and_no_implicit_amp_download(monkeypat
     assert report["provenance"]["best_weights"]["sha256"] == hashlib.sha256(b"test trained checkpoint").hexdigest()
     assert report["provenance"]["last_weights"]["sha256"] is None
     assert all(Path(line).is_absolute() for line in (directory / "train.txt").read_text().splitlines())
+
+
+@pytest.mark.parametrize("freeze", [-1, True, False, 1.5, "10", float("nan")])
+def test_training_rejects_invalid_freeze_before_audit_or_model_loading(monkeypatch, freeze):
+    def forbidden(*args, **kwargs):
+        pytest.fail("Invalid freeze must fail before touching data or loading a model")
+
+    monkeypatch.setattr(ml, "_audited_run", forbidden)
+    monkeypatch.setattr(ml, "load_yolo", forbidden)
+    with pytest.raises(ml.WorkflowError, match="freeze"):
+        ml.train_model("unavailable.pt", "unavailable.yaml", freeze=freeze)
 
 
 @pytest.mark.parametrize("operation", [ml.train_model, ml.validate_model])

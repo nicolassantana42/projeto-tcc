@@ -8,6 +8,7 @@ import time
 import cv2
 
 from .capture import ImageSource, open_source
+from .config import DEFAULT_PERSON_MODEL, DEFAULT_PPE_MODEL
 from .events import CameraContext, EventPolicy, EventService, EventStore
 from .factory import create_cascade
 from .rendering import render_frame
@@ -45,7 +46,7 @@ def _output_paths(source, person_model, ppe_model, output, snapshot):
     return destination, image_path
 
 
-def run_detection(*, source, person_model="models/yolo11n.pt", ppe_model="models/ppe/best.pt",
+def run_detection(*, source, person_model=DEFAULT_PERSON_MODEL, ppe_model=DEFAULT_PPE_MODEL,
                   device="auto", imgsz=640, confidence=.4, iou=.45, max_frames=300,
                   output="runs/detection/frames.jsonl", snapshot=None, show=False,
                   save_events=False, camera_name="Câmera 01", location="Local não informado",

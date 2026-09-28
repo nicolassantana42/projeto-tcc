@@ -108,8 +108,15 @@ def render_alert_settings(running: bool):
     settings = st.session_state.alert_settings
     n8n = st.session_state.n8n_config
     st.subheader("Câmera, evidências e integrações")
+<<<<<<< HEAD
     st.caption("Preencha, salve e inicie o monitoramento. A URL do webhook n8n fica somente nesta sessão "
                "ou pode ser carregada do arquivo local .streamlit/secrets.toml / variável N8N_WEBHOOK_URL.")
+=======
+    if notice := st.session_state.pop("alert_settings_notice", None):
+        st.success(notice)
+    st.caption("Preencha, salve e inicie o monitoramento. Tokens e senhas ficam somente nesta sessão, "
+               "ou podem ser carregados do arquivo local .streamlit/secrets.toml.")
+>>>>>>> dcaa5a00f9a8f30e2a12826dbeb9f81827583557
     if running:
         st.info("Pare o monitoramento para alterar a automação e a política de ocorrências.")
     with st.form("alert_configuration"):
@@ -133,12 +140,39 @@ def render_alert_settings(running: bool):
                                     value=int(settings["max_events"]), step=10, disabled=running)
         st.caption("A imagem é salva após confirmação por continuidade espacial. O intervalo limita novos registros por câmera nesta sessão; "
                    "os mais antigos são removidos quando o limite de armazenamento é atingido, preservando envios pendentes.")
+<<<<<<< HEAD
         st.caption("Os segundos de confirmação e o horário do registro são da análise. Arquivos de vídeo não são reproduzidos "
                    "na velocidade original; esse tempo não mede a duração da presença na filmagem.")
         st.markdown("#### Automação n8n")
         n8n_enabled = st.checkbox("Ativar envio de ocorrências ao n8n", value=n8n.enabled, disabled=running)
         webhook_url = st.text_input("URL do webhook n8n", value=n8n.webhook_url, type="password", disabled=running)
         st.caption("Telegram, e-mail e demais canais ficam no fluxo n8n. Este aplicativo envia somente foto + metadados ao webhook.")
+=======
+        st.caption("Em vídeo, a confirmação usa o tempo da filmagem; em câmera/RTSP, usa o tempo entre observações. "
+                   "Imagens estáticas registram uma observação única. O horário salvo é o momento da análise em UTC.")
+        st.markdown("#### Telegram")
+        telegram_enabled = st.checkbox("Ativar Telegram para novas ocorrências", value=telegram.enabled, disabled=running)
+        token = st.text_input("Token do bot", value=telegram.token, type="password", disabled=running)
+        chat_id = st.text_input("Chat ID de destino", value=telegram.chat_id, disabled=running)
+        st.caption("Crie o bot no @BotFather, abra a conversa com ele e envie /start. Em grupo, adicione o bot. "
+                   "O destinatário recebe foto + câmera + local + horário + motivo.")
+        st.caption("Para consultar o Chat ID sem enviar mensagens, siga docs/ALERTS.md → Descobrir o Chat ID localmente. "
+                   "Preserve o sinal negativo de IDs de grupos.")
+        with st.expander("E-mail / Outlook (opcional)"):
+            email_enabled = st.checkbox("Ativar e-mail para novas ocorrências", value=email.enabled, disabled=running)
+            host = st.text_input("Servidor SMTP", value=email.host, disabled=running)
+            port = st.number_input("Porta SMTP", min_value=1, max_value=65535, value=email.port, disabled=running)
+            security = st.selectbox("Criptografia", ["starttls", "ssl"], index=["starttls", "ssl"].index(email.security), disabled=running)
+            username = st.text_input("Usuário SMTP", value=email.username, disabled=running)
+            sender = st.text_input("E-mail remetente", value=email.sender, disabled=running)
+            recipient = st.text_input("E-mail destinatário", value=email.recipient, disabled=running)
+            auth_mode = st.selectbox("Autenticação", ["oauth2", "password"], index=["oauth2", "password"].index(email.auth_mode),
+                                     format_func=lambda value: "OAuth2 (Outlook / Microsoft 365)" if value == "oauth2" else "Senha de aplicativo (outros provedores)", disabled=running)
+            access_token = st.text_input("Access token OAuth2 SMTP", value=email.access_token, type="password", disabled=running)
+            password = st.text_input("Senha de aplicativo SMTP", value=email.password, type="password", disabled=running)
+            st.caption("Outlook usa OAuth2. Esta versão recebe um access token SMTP válido; login Microsoft e renovação "
+                       "automática ainda não estão integrados. Não use sua senha comum do Outlook aqui.")
+>>>>>>> dcaa5a00f9a8f30e2a12826dbeb9f81827583557
         submitted = st.form_submit_button("Salvar configurações", type="primary", disabled=running)
     if submitted:
         try:
@@ -153,6 +187,7 @@ def render_alert_settings(running: bool):
                        "cooldown_seconds": cooldown, "max_events": int(max_events)}
             save_settings(updated)
             st.session_state.alert_settings = updated
+<<<<<<< HEAD
             st.session_state.n8n_config = next_n8n
             st.success("Configurações salvas. O envio ao n8n vale para esta sessão; inicie a captura para usá-lo.")
         except (ValueError, OSError) as error:
@@ -162,6 +197,24 @@ def render_alert_settings(running: bool):
     if st.button("Enviar teste ao n8n", disabled=running or not n8n_active):
         _send_test()
     st.caption("O teste envia uma imagem desenhada com o nome/local configurados. Consulte o resultado na aba Ocorrências.")
+=======
+            st.session_state.telegram_config = next_telegram
+            st.session_state.email_config = next_email
+            st.session_state.alert_settings_notice = "Configurações salvas. Canais ativados valem para esta sessão; inicie a captura para usá-los."
+            # Refresh widget defaults and monitor summaries after committing the form.
+            # Without this rerun, a subsequent edit can be reset by a changed default.
+            st.rerun()
+        except (ValueError, OSError) as error:
+            st.error(str(error))
+    enabled = [name for name, config in (("Telegram", st.session_state.telegram_config), ("E-mail", st.session_state.email_config)) if config.enabled]
+    st.caption("Canais ativos nesta sessão: " + (", ".join(enabled) if enabled else "nenhum — imagens ficam somente no computador"))
+    if enabled and not st.session_state.alert_settings["save_enabled"]:
+        st.warning("Canal configurado, mas o envio automático está desligado porque 'Salvar ocorrências automaticamente' está desmarcado.")
+    if st.button("Enviar teste aos canais ativos", disabled=running or not enabled):
+        _send_test()
+    st.caption("O botão de teste faz um envio real de uma imagem desenhada, com o nome/local configurados. "
+               "Consulte o resultado na aba Ocorrências. Salvar configurações não envia mensagens.")
+>>>>>>> dcaa5a00f9a8f30e2a12826dbeb9f81827583557
 
 
 def _send_test():

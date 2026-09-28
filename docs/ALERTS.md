@@ -16,12 +16,29 @@ ficam disponíveis na visualização simples. O caminho atual envia diretamente
    reconhecíveis e clique **Salvar configurações**.
 2. Abra **Monitoramento** e selecione uma fonte. Para capacetes e coletes, use
    o modo EPI com dois modelos: o detector de pessoas e pesos EPI compatíveis.
-   Os pesos de trabalho ficam em `models/ppe/best.pt`; consulte o treinamento
-   inicial e seus limites em [VALIDATION.md](VALIDATION.md). **Demo COCO** com `models/yolo11n.pt` demonstra
+   Os pesos de trabalho ficam em `models/ppe/absence.pt`; consulte o ajuste
+   com classes de ausência e seus limites em [VALIDATION.md](VALIDATION.md). **Demo COCO** com `models/yolo11n.pt` demonstra
    apenas pessoas/objetos gerais; esses pesos não reconhecem EPIs.
 3. Clique **Iniciar**. O quadro da câmera mostra as caixas, classes e confiança
-   das detecções e os estados por pessoa. Os indicadores mostram as contagens
-   do quadro atual. Nenhuma dessas contagens representa pessoas únicas.
+   das detecções. Logo abaixo, a tabela separa **Capacete** e **Colete** por pessoa:
+   **Detectado**, **Ausência explícita** ou **Inconclusivo**. Uma coluna adicional
+   mostra o resultado conjunto e o motivo. O número da pessoa vale apenas para
+   aquele quadro; não identifica um trabalhador nem conta pessoas únicas.
+
+A visualização simples é o padrão. **Exibir painel completo** acrescenta
+contagens e indicadores sem mudar as regras de detecção. O monitor informa
+câmera, local, estado do Telegram e a pasta das imagens. As outras duas abas
+continuam disponíveis na visualização simples:
+
+- **Ocorrências:** foto anotada, câmera, local, horário, motivo e resultado de cada envio.
+- **Alertas e integrações:** identificação da câmera, regra de ocorrência, token do bot,
+  Chat ID, ativação do Telegram e teste de conexão.
+
+Depois de carregar os pesos, o monitor mostra quais classes negativas o **modelo
+carregado** reconhece. Se não houver `no_vest`, aparece um aviso específico de
+que esse modelo não classifica ausência de colete. Esse aviso também permanece
+ao encerrar a captura, junto ao último quadro. A existência de uma classe é
+uma capacidade da taxonomia, não uma garantia de precisão; confira as métricas.
 
 A webcam é a do computador que executa o servidor Streamlit. Abrir a página em
 outro dispositivo não transfere sua câmera para o servidor. No Docker, prefira
@@ -63,9 +80,20 @@ Imagens estáticas são observações únicas, identificadas como tal; não simu
 persistência temporal. A CLI `detect --save-events` também pode salvá-las e
 nunca ativa os canais da interface.
 
-O dataset Construction-PPE não contém `no_vest`. Pesos treinados somente
-nessa taxonomia podem detectar coletes, mas não fornecem uma classe negativa
-de ausência de colete. Nesse caso, colete não detectado permanece inconclusivo.
+O modelo atual `models/ppe/absence.pt` inclui `NO-Safety Vest` e `NO-Hardhat`,
+normalizadas para `no_vest` e `no_helmet`. Elas podem produzir uma evidência
+explícita de ausência de colete ou capacete. A evidência precisa ser associada
+à pessoa sem ambiguidade e passar pela mesma confirmação temporal dos demais
+alertas. Os pesos históricos `models/ppe/best.pt` e seu INT8 foram treinados
+em Construction-PPE, sem `no_vest`; se escolhidos manualmente, não passam a
+reconhecer ausência de colete. A mera falta de uma caixa nunca é convertida
+em infração.
+
+Os alertas continuam sujeitos a omissões e falsos positivos. No teste público
+RF100, o recall de sem capacete do modelo atual foi 25% e o de sem colete,
+63,93%; essas medidas são de caixas, não da entrega ou qualidade dos alertas
+por pessoa. Ainda falta validar o ambiente real. Consulte
+[VALIDATION.md](VALIDATION.md) e revise a evidência recebida antes de agir.
 
 ## Onde ficam as imagens
 
@@ -118,12 +146,21 @@ de relatórios mantém os arquivos fora do ciclo de vida do container.
 5. Marque **Ativar Telegram para novas ocorrências** e clique **Salvar
    configurações** antes de iniciar o monitoramento. O canal começa desativado;
    somente preencher credenciais não inicia o envio.
+6. Mantenha **Salvar ocorrências automaticamente** marcado e selecione
+   **Possível ausência de EPI (modelo treinado)**. Em **Monitoramento**, confira
+   o estado **Telegram: ativo para novas ocorrências**, escolha a fonte e clique
+   **Iniciar**. Detecções inconclusivas não disparam essa regra.
 
 Com o monitoramento parado, **Enviar teste aos canais ativos** envia uma imagem
 de teste desenhada, identificada como teste, com os dados de câmera e local.
 Esse botão realiza um envio real aos destinos configurados. Consulte o resultado
 em **Ocorrências**. Os canais ativados valem para a sessão atual; ative-os novamente
 ao iniciar outra sessão. Pare o monitoramento antes de alterar destinos e regras.
+Se o registro automático estiver desmarcado, a tela informa que o canal está
+configurado, mas o envio automático está desligado. O teste manual continua
+disponível. **Salvar configurações** apenas aplica as preferências; não manda
+mensagens. O projeto foi testado com Telegram simulado: para verificar seu bot,
+use o botão de teste com suas próprias credenciais.
 
 O usuário precisa iniciar a conversa com o bot antes de receber mensagens
 privadas. Os passos de criação e contato seguem o

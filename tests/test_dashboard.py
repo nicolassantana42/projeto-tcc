@@ -171,8 +171,11 @@ def test_initial_screen_explains_capture_and_channels_stay_disabled(dashboard):
     assert button(app, "Enviar teste ao n8n").disabled
     assert not app.session_state["n8n_config"].enabled
     assert element(app, "radio", "Finalidade do modelo").value == "EPI treinado"
+    assert element(app, "text_input", "Caminho do modelo").value == "models/ppe/absence.pt"
     assert not element(app, "checkbox", "Exibir painel completo").value
     assert app.session_state["alert_settings"]["trigger"] == "ppe"
+    assert any("Telegram: desativado" in item.value for item in app.caption)
+    assert any("envio real" in item.value for item in app.caption)
 
 
 def test_settings_survive_restart_without_secrets_or_channel_activation(dashboard):
@@ -410,3 +413,90 @@ def test_image_executes_real_cascade_and_saves_only_explicit_unsafe(dashboard, m
     assert app.session_state["runtime"] is None
     assert app.session_state["latest_result"] is result
     assert len(calls) == 2
+
+
+@pytest.mark.parametrize("full_panel", [False, True])
+@pytest.mark.parametrize("vest_state", ["present", "absent", "uncertain", "unsupported"])
+def test_vest_status_capabilities_and_telegram_follow_actual_evidence(
+    dashboard, monkeypatch, tmp_path, vest_state, full_panel,
+):
+    """The UI must not promise no-vest support from the cascade's output names."""
+    app = dashboard
+    sent = []
+    image_path = tmp_path / "colete.png"
+    cv2.imencode(".png", np.full((300, 500, 3), 40, dtype=np.uint8))[1].tofile(str(image_path))
+    names = {0: "Hardhat", 1: "Safety Vest", 2: "NO-Hardhat"}
+    if vest_state != "unsupported":
+        names[3] = "NO-Safety Vest"
+
+    class Detector:
+        device = "cpu"
+
+        def __init__(self, person):
+            self.person = person
+            self.names = {0: "person"} if person else names
+
+        def predict(self, frame, **kwargs):
+            if self.person:
+                return [Detection(0, "person", .95, (40, 20, 160, 280))]
+            predictions = [Detection(0, "Hardhat", .95, (70, 25, 130, 60))]
+            if vest_state == "present":
+                predictions.append(Detection(1, "Safety Vest", .9, (65, 100, 135, 180)))
+            elif vest_state == "absent":
+                predictions.append(Detection(3, "NO-Safety Vest", .9, (65, 100, 135, 180)))
+            return predictions
+
+    class TelegramSender:
+        def __init__(self, config):
+            assert config.enabled
+
+        def send(self, event):
+            sent.append(event)
+            return "Mock accepted"
+
+    monkeypatch.setattr(YOLODetector, "load", lambda detector: Detector(detector.config.model_path == "models/yolo11n.pt"))
+    monkeypatch.setattr(alert_panels, "TelegramSender", TelegramSender)
+    configure_camera(app, telegram=True)
+    element(app, "selectbox", "Quando registrar uma ocorrência").select("ppe")
+    button(app, "Salvar configurações").click().run()
+    element(app, "checkbox", "Exibir painel completo").set_value(full_panel)
+    app.selectbox(key="source_type").select("Imagem").run()
+    element(app, "radio", "Abrir imagem").set_value("Caminho no computador").run()
+    element(app, "text_input", "Caminho da imagem").set_value(str(image_path))
+    button(app, "▶ Iniciar").click().run()
+    assert_no_exception(app)
+    table = next(item.value for item in app.dataframe if "Capacete" in item.value.columns)
+    assert table.iloc[0]["Capacete"] == "Detectado"
+    expected = {"present": "Detectado", "absent": "Ausência explícita",
+                "uncertain": "Inconclusivo", "unsupported": "Inconclusivo"}[vest_state]
+    assert table.iloc[0]["Colete"] == expected
+    warnings = [item.value for item in app.warning]
+    assert any("não tem classe explícita de sem colete" in text for text in warnings) == (vest_state == "unsupported")
+    assert app.session_state["active_metadata"]["ppe_model_classes"] == list(names.values())
+    assert any("Telegram: ativo para novas ocorrências" in item.value for item in app.caption)
+    runtime = app.session_state["runtime"]
+    assert runtime.dispatcher.close(wait=True, timeout=2)
+    events = EventStore(alert_panels.reports_root() / "occurrences").list_events()
+    assert len(sent) == len(events) == int(vest_state == "absent")
+    if sent:
+        assert sent[0]["kind"] == "ppe"
+        assert sent[0]["camera_name"] == "Câmera da entrada"
+        assert sent[0]["location"] == "Unidade 2 • Galpão A"
+        assert Path(sent[0]["snapshot_path"]).is_file()
+        assert "colete" in " ".join(sent[0]["reasons"])
+        assert events[0]["deliveries"]["telegram"]["status"] == "accepted"
+    app.run()
+    assert_no_exception(app)
+    assert app.session_state["runtime"] is None
+    assert any("Classes de ausência disponíveis" in item.value for item in app.caption)
+
+
+def test_telegram_configuration_explains_disabled_automatic_saving(dashboard):
+    configure_camera(dashboard, telegram=True)
+    element(dashboard, "checkbox", "Salvar ocorrências automaticamente").uncheck()
+    button(dashboard, "Salvar configurações").click().run()
+    dashboard.run()
+    assert_no_exception(dashboard)
+    assert any("envio automático está desligado" in item.value for item in dashboard.warning)
+    assert any("Telegram: configurado; envio automático desligado" in item.value for item in dashboard.caption)
+    assert not list((alert_panels.reports_root() / "occurrences").glob("*/event.json"))

@@ -1,5 +1,140 @@
 # Validação executada
 
+## Capacete, colete e ausências explícitas — 28/09/2026
+
+O modelo ativo passou a ser **`models/ppe/absence.pt`**, SHA256
+`14ac39c777e94864006bf5842a941c00e1b50a7b21f60e3b676d4beab6949d0b`.
+O detector COCO de pessoas permanece o mesmo. `models/ppe/best.pt` e seu INT8
+foram preservados como experimento anterior: **não são exports do modelo novo**.
+
+O novo ajuste habilita **sem colete** e melhora algumas métricas, mas **não resolve
+a baixa detecção de sem capacete**. Também houve regressão de colete no dataset
+anterior. As medidas abaixo preservam esses resultados, sem apresentar o sistema
+como validado para fiscalização ou para o ambiente real do TCC.
+
+Artefatos versionáveis: [relatório do experimento](experiments/ppe-absence-2026-09-28.json),
+[histórico das épocas](experiments/absence-training-2026-09-24.csv),
+[procedência e reprodução](ABSENCE_DATA.md). Relatórios detalhados e erros por
+imagem ficam em `runs/ppe-absence/` nesta instalação.
+
+### Dados, treinamento e seleção
+
+- RF100 `construction-safety-gsnvb`, preservando **997 imagens de treino,
+  119 de validação e 90 de teste**. As 1.206 imagens foram lidas e auditadas,
+  com 7.724 instâncias, sem arquivos de rótulos ausentes ou duplicatas exatas
+  entre splits. Isso não certifica a qualidade semântica das anotações.
+- Cinco classes anotadas: capacete, sem capacete, sem colete, pessoa e colete.
+  Os rótulos foram remapeados para os IDs do modelo externo YOLO11n, preservando
+  suas dez saídas. As outras cinco classes **não foram avaliadas**.
+- Ajuste local concluído em **24/09**: 10 épocas, imgsz 416, batch 8, seed 42,
+  CPU, AMP desativado e `freeze=10`. Aproximadamente 36,5 minutos de épocas.
+  O melhor checkpoint foi escolhido pelo val; esse prazo não comprova convergência.
+- Há apenas **94 instâncias de sem capacete no treino**, contra 2.116 capacetes.
+  A inspeção encontrou inclusive uma anotação `no-vest` sobre um capacete no val
+  (`ppe_0441`). O exemplo permaneceu intacto e está registrado no protocolo.
+- Comparação de candidatos em val antes do teste, mantendo o mesmo detector de
+  pessoas, imgsz 640, confiança 0,40, NMS IoU 0,45 e matching IoU 0,50.
+  Nenhum limiar foi ajustado a partir dos resultados de teste.
+- O teste ficou fora do **ajuste local**, mas a sobreposição com os dados usados
+  pelo autor dos pesos externos é desconhecida. Não é prova de teste independente.
+
+### Comparação no mesmo val: 119 imagens
+
+Valores de recall de caixas da cascata com limiar fixo, não mAP:
+
+| Classe | Modelo anterior | Candidato externo | Ajuste local selecionado | Precisão do ajuste |
+| --- | --- | --- | --- | --- |
+| Capacete | 68,53% (159/232) | 73,71% (171/232) | 88,79% (206/232) | 91,96% |
+| Colete | 75,89% (107/141) | 79,43% (112/141) | 81,56% (115/141) | 94,26% |
+| Sem capacete | 0% (0/11) | 27,27% (3/11) | 45,45% (5/11) | 100% (5 TP, 0 FP) |
+| Sem colete | Classe inexistente | 55,56% (50/90) | 63,33% (57/90) | 83,82% |
+
+São apenas 11 exemplos de sem capacete no val; 100% de precisão com cinco
+previsões não garante precisão equivalente em outras cenas. Os três modelos
+usam dados de treino diferentes, portanto a comparação não isola arquitetura.
+
+### Resultado do modelo selecionado no teste RF100: 90 imagens
+
+Mesmos limiares da tabela anterior, sem mudar a geometria de associação:
+
+| Classe | TP | FP | FN | Precisão | Recall |
+| --- | --- | --- | --- | --- | --- |
+| Pessoa | 186 | 44 | 28 | 80,87% | 86,92% |
+| Capacete | 178 | 30 | 17 | 85,58% | 91,28% |
+| Colete | 93 | 15 | 36 | **86,11%** | **72,09%** |
+| Sem capacete | 6 | 3 | 18 | 66,67% | **25,00%** |
+| Sem colete | 39 | 17 | 22 | **69,64%** | **63,93%** |
+
+As 18 omissões de sem capacete e 22 omissões de sem colete continuam sendo
+limitações materiais. Os 17 falsos positivos de sem colete também exigem atenção.
+Esses números avaliam **caixas**, não a classificação final por pessoa nem os
+alertas temporais. Não detectar uma caixa continua gerando incerteza, nunca uma
+classe negativa inventada. Relatório: `runs/ppe-absence/finetuned-test.json`.
+
+O detector individual de EPI foi avaliado separadamente em imgsz 640,
+batch 1, confiança 0,001 e NMS IoU 0,7. mAP@0,5 **0,7506** e mAP@0,5:0,95
+**0,3949**, média das **cinco classes anotadas**, não das dez saídas. AP@0,5
+por classe: capacete 0,9291; colete 0,8274; sem capacete 0,4984;
+sem colete 0,6265; pessoa 0,8716. A saída de pessoa desse segundo modelo
+não substitui o primeiro detector na cascata. Não confundir AP com recall
+no limiar operacional de 0,40.
+
+![Curvas PR do novo detector no teste RF100](images/absence-pr-test.png)
+
+![Matriz de confusão normalizada do novo detector](images/absence-confusion-test.png)
+
+Arquivos completos: `runs/validate/ppe_absence_test/validation.json`,
+`BoxPR_curve.png`, `confusion_matrix.png` e `predictions.json`.
+
+### Regressão exploratória no teste anterior: 141 imagens Construction-PPE
+
+Para comparar diretamente com o recall de 12,5% citado anteriormente,
+o novo modelo também foi executado no mesmo teste antigo, mantendo limiares:
+
+| Classe | Anterior TP / FP / FN | Novo TP / FP / FN | Recall anterior → novo | Precisão anterior → nova |
+| --- | --- | --- | --- | --- |
+| Capacete | 153 / 8 / 39 | 153 / 12 / 39 | 79,69% → 79,69% | 95,03% → 92,73% |
+| Colete | 139 / 8 / 39 | 126 / 11 / 52 | 78,09% → 70,79% | 94,56% → 91,97% |
+| Sem capacete | 5 / 1 / 35 | 10 / 13 / 30 | **12,50% → 25,00%** | **83,33% → 43,48%** |
+
+O aumento de recall de sem capacete veio acompanhado de mais falsos positivos.
+Houve perda de detecção de coletes nesse domínio. Não há ganho universal nem
+conclusão de que a ausência esteja resolvida. Esse teste foi consultado em
+experimentos anteriores e é um diagnóstico exploratório de regressão.
+Não contém `no_vest` e não mede essa classe. Relatório:
+`runs/ppe-absence/finetuned-construction-test.json`.
+
+### Interface, evidências e Telegram
+
+A visualização simples separa **Capacete / Colete** por pessoa e mantém três
+estados. A imagem pública `ppe_0079` foi selecionada para testar o fluxo: uma
+pessoa com EPIs, uma com ausência explícita de colete e uma inconclusiva.
+O colete da pessoa à esquerda não foi reconhecido; a interface preservou
+a incerteza. [Foto e atribuição](../README.md).
+
+A execução real pelo navegador salvou JPEG/JSON no histórico com câmera e local,
+em diretório isolado `runs/ppe-absence/ui-reports/occurrences/`.
+
+![Ocorrência salva pela interface](images/absence-occurrence-ui.png)
+
+![Configuração Telegram, sem credenciais ou canais ativados](images/absence-telegram-ui.png)
+
+Um vídeo **artificial de integração**, repetindo a cena por 100 quadros e
+acrescentando três quadros vazios a 25 FPS, gerou exatamente uma ocorrência:
+frame 51, **2,00 segundos da mídia**, sem duplicação durante cooldown de 60 s.
+Os três quadros vazios pularam o segundo YOLO. Não é validação temporal em obra.
+Relatório: `runs/ppe-absence/smoke/smoke-summary.json`.
+
+**Nenhum envio real ao Telegram/Outlook**, webcam física ou RTSP foi usado.
+O Telegram foi exercitado por mocks (incluindo foto/local/motivo), e os campos
+foram conferidos no navegador; a conexão com o bot do operador permanece pendente.
+O [guia de alertas](ALERTS.md) explica token, Chat ID, ativação e consulta dos envios.
+
+Verificação final em 28/09/2026: **504 testes passaram em 27,24 s**;
+`pip check`, `compileall src scripts tests` e `git diff --check` sem erros.
+O novo modelo ainda não tem export quantizado validado; os resultados INT8
+abaixo pertencem exclusivamente ao experimento anterior.
+
 ## Núcleo do TCC: treino e detecção real — 23/09/2026
 
 A revisão dos dois documentos fornecidos está em [TCC_ALIGNMENT.md](TCC_ALIGNMENT.md).

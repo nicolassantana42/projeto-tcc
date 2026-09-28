@@ -1,0 +1,1754 @@
+{
+  "experiment": "YOLO11n PPE: explicit missing vest, local fine-tuning",
+  "training_date": "2026-09-24",
+  "evaluation_date": "2026-09-28",
+  "active_model": "models/ppe/absence.pt",
+  "selection": "Selected fine-tuned best checkpoint on RF100 validation at confidence .4, NMS IoU .45, matching IoU .5 before test; original Construction-PPE test used as exploratory regression diagnostic.",
+  "reports": {
+    "validation_previous": {
+      "kind": "cascade_fixed_threshold_detection_evaluation",
+      "timestamp_utc": "2026-09-24T16:22:33.349235+00:00",
+      "config": {
+        "data": "C:\\projeto-tcc\\projeto-tcc\\data\\ppe-absence.yaml",
+        "split": "val",
+        "confidence": 0.4,
+        "iou": 0.45,
+        "match_iou": 0.5,
+        "max_images": null,
+        "sample_selection": "sorted paths, first N; no shuffle",
+        "error_record_limit": 5000
+      },
+      "dataset": {
+        "source": "external_dataset",
+        "training_overlap": "unknown",
+        "held_out_verified": false,
+        "available_images": 119,
+        "evaluated_images": 119,
+        "names": {
+          "0": "helmet",
+          "1": "no-helmet",
+          "2": "no-vest",
+          "3": "person",
+          "4": "vest"
+        },
+        "evaluated_set_sha256": "dd02792770d6e11cb65992a46d4583d2e3898163f552319f15d6193f9bd85cec",
+        "hash_scope": "names, split and ordered evaluated image/label content hashes; missing labels marked explicitly",
+        "background_images": 0,
+        "images_without_scored_labels": 0,
+        "missing_label_files": [],
+        "empty_label_files": []
+      },
+      "coverage": {
+        "scored_classes": [
+          "person",
+          "helmet",
+          "vest",
+          "no_helmet",
+          "no_vest"
+        ],
+        "unannotated_canonical_classes": [],
+        "ignored_dataset_classes": {},
+        "ignored_predictions": {
+          "total": 0,
+          "by_label": {}
+        },
+        "ignored_ground_truth": {
+          "total": 0,
+          "by_label": {}
+        },
+        "predictions_below_confidence": 0
+      },
+      "per_class": {
+        "person": {
+          "tp": 218,
+          "fp": 19,
+          "fn": 23,
+          "ground_truth": 241,
+          "predictions": 237,
+          "precision": 0.919831223628692,
+          "recall": 0.9045643153526971
+        },
+        "helmet": {
+          "tp": 159,
+          "fp": 22,
+          "fn": 73,
+          "ground_truth": 232,
+          "predictions": 181,
+          "precision": 0.8784530386740331,
+          "recall": 0.6853448275862069
+        },
+        "vest": {
+          "tp": 107,
+          "fp": 47,
+          "fn": 34,
+          "ground_truth": 141,
+          "predictions": 154,
+          "precision": 0.6948051948051948,
+          "recall": 0.7588652482269503
+        },
+        "no_helmet": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 11,
+          "ground_truth": 11,
+          "predictions": 0,
+          "precision": null,
+          "recall": 0.0
+        },
+        "no_vest": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 90,
+          "ground_truth": 90,
+          "predictions": 0,
+          "precision": null,
+          "recall": 0.0
+        }
+      },
+      "micro": {
+        "tp": 484,
+        "fp": 88,
+        "fn": 231,
+        "ground_truth": 715,
+        "predictions": 572,
+        "precision": 0.8461538461538461,
+        "recall": 0.676923076923077
+      },
+      "errors_total": 319,
+      "errors_truncated": false,
+      "pipeline_latency_ms": {
+        "samples": 119,
+        "mean": 303.3468168060845,
+        "p50": 303.2001000101445,
+        "p95": 369.50432000739954,
+        "total": 36098.27119992406
+      },
+      "stage_latency_ms": {
+        "person": {
+          "samples": 119,
+          "mean": 159.08691344575803,
+          "p50": 157.96890000638086,
+          "p95": 195.45458000648068,
+          "total": 18931.342700045207
+        },
+        "ppe": {
+          "samples": 119,
+          "mean": 143.80339747810825,
+          "p50": 148.73100000841077,
+          "p95": 189.54363999946509,
+          "total": 17112.604299894883
+        }
+      },
+      "evaluation_wall_time_ms": 37970.73709999677,
+      "environment": {
+        "python": "3.12.14",
+        "platform": "Windows-11-10.0.26200-SP0",
+        "processor": "Intel64 Family 6 Model 186 Stepping 3, GenuineIntel",
+        "pipeline": "CascadePipeline",
+        "stages": {
+          "person_detector": {
+            "device": "cpu",
+            "configured_model_path": "models/yolo11n.pt",
+            "configured_device": "cpu",
+            "configured_confidence": 0.4,
+            "configured_iou": 0.45,
+            "configured_imgsz": 640
+          },
+          "ppe_detector": {
+            "device": "cpu",
+            "configured_model_path": "models/ppe/best.pt",
+            "configured_device": "cpu",
+            "configured_confidence": 0.4,
+            "configured_iou": 0.45,
+            "configured_imgsz": 640
+          }
+        }
+      },
+      "limitations": [
+        "Fixed-threshold box precision/recall, not AP or mAP; no confidence sweep.",
+        "Only classes declared in YAML are scored; declaration does not prove exhaustive annotation.",
+        "Missing label files are treated as background; review the explicit list before interpreting false positives.",
+        "Per-person PPE states and equipment-person associations are not evaluated from isolated box labels.",
+        "Overlap with model training data is unknown; this report does not establish an independent held-out test.",
+        "Latency includes the first pipeline call, excludes image I/O and depends on the recorded hardware."
+      ],
+      "report_path": "C:\\projeto-tcc\\projeto-tcc\\runs\\ppe-absence\\previous-val.json"
+    },
+    "validation_external_candidate": {
+      "kind": "cascade_fixed_threshold_detection_evaluation",
+      "timestamp_utc": "2026-09-24T16:23:08.995295+00:00",
+      "config": {
+        "data": "C:\\projeto-tcc\\projeto-tcc\\data\\ppe-absence.yaml",
+        "split": "val",
+        "confidence": 0.4,
+        "iou": 0.45,
+        "match_iou": 0.5,
+        "max_images": null,
+        "sample_selection": "sorted paths, first N; no shuffle",
+        "error_record_limit": 5000
+      },
+      "dataset": {
+        "source": "external_dataset",
+        "training_overlap": "unknown",
+        "held_out_verified": false,
+        "available_images": 119,
+        "evaluated_images": 119,
+        "names": {
+          "0": "helmet",
+          "1": "no-helmet",
+          "2": "no-vest",
+          "3": "person",
+          "4": "vest"
+        },
+        "evaluated_set_sha256": "dd02792770d6e11cb65992a46d4583d2e3898163f552319f15d6193f9bd85cec",
+        "hash_scope": "names, split and ordered evaluated image/label content hashes; missing labels marked explicitly",
+        "background_images": 0,
+        "images_without_scored_labels": 0,
+        "missing_label_files": [],
+        "empty_label_files": []
+      },
+      "coverage": {
+        "scored_classes": [
+          "person",
+          "helmet",
+          "vest",
+          "no_helmet",
+          "no_vest"
+        ],
+        "unannotated_canonical_classes": [],
+        "ignored_dataset_classes": {},
+        "ignored_predictions": {
+          "total": 0,
+          "by_label": {}
+        },
+        "ignored_ground_truth": {
+          "total": 0,
+          "by_label": {}
+        },
+        "predictions_below_confidence": 0
+      },
+      "per_class": {
+        "person": {
+          "tp": 218,
+          "fp": 19,
+          "fn": 23,
+          "ground_truth": 241,
+          "predictions": 237,
+          "precision": 0.919831223628692,
+          "recall": 0.9045643153526971
+        },
+        "helmet": {
+          "tp": 171,
+          "fp": 14,
+          "fn": 61,
+          "ground_truth": 232,
+          "predictions": 185,
+          "precision": 0.9243243243243243,
+          "recall": 0.7370689655172413
+        },
+        "vest": {
+          "tp": 112,
+          "fp": 24,
+          "fn": 29,
+          "ground_truth": 141,
+          "predictions": 136,
+          "precision": 0.8235294117647058,
+          "recall": 0.7943262411347518
+        },
+        "no_helmet": {
+          "tp": 3,
+          "fp": 9,
+          "fn": 8,
+          "ground_truth": 11,
+          "predictions": 12,
+          "precision": 0.25,
+          "recall": 0.2727272727272727
+        },
+        "no_vest": {
+          "tp": 50,
+          "fp": 10,
+          "fn": 40,
+          "ground_truth": 90,
+          "predictions": 60,
+          "precision": 0.8333333333333334,
+          "recall": 0.5555555555555556
+        }
+      },
+      "micro": {
+        "tp": 554,
+        "fp": 76,
+        "fn": 161,
+        "ground_truth": 715,
+        "predictions": 630,
+        "precision": 0.8793650793650793,
+        "recall": 0.7748251748251749
+      },
+      "errors_total": 237,
+      "errors_truncated": false,
+      "pipeline_latency_ms": {
+        "samples": 119,
+        "mean": 289.80632100932735,
+        "p50": 296.3305000012042,
+        "p95": 352.01170001091657,
+        "total": 34486.952200109954
+      },
+      "stage_latency_ms": {
+        "person": {
+          "samples": 119,
+          "mean": 149.09861092465468,
+          "p50": 149.06979999796022,
+          "p95": 186.24118000589078,
+          "total": 17742.734700033907
+        },
+        "ppe": {
+          "samples": 119,
+          "mean": 140.23778907526207,
+          "p50": 146.08659999794327,
+          "p95": 182.80188000499038,
+          "total": 16688.296899956185
+        }
+      },
+      "evaluation_wall_time_ms": 35117.315399998915,
+      "environment": {
+        "python": "3.12.14",
+        "platform": "Windows-11-10.0.26200-SP0",
+        "processor": "Intel64 Family 6 Model 186 Stepping 3, GenuineIntel",
+        "pipeline": "CascadePipeline",
+        "stages": {
+          "person_detector": {
+            "device": "cpu",
+            "configured_model_path": "models/yolo11n.pt",
+            "configured_device": "cpu",
+            "configured_confidence": 0.4,
+            "configured_iou": 0.45,
+            "configured_imgsz": 640
+          },
+          "ppe_detector": {
+            "device": "cpu",
+            "configured_model_path": "models/ppe/absence-base.pt",
+            "configured_device": "cpu",
+            "configured_confidence": 0.4,
+            "configured_iou": 0.45,
+            "configured_imgsz": 640
+          }
+        }
+      },
+      "limitations": [
+        "Fixed-threshold box precision/recall, not AP or mAP; no confidence sweep.",
+        "Only classes declared in YAML are scored; declaration does not prove exhaustive annotation.",
+        "Missing label files are treated as background; review the explicit list before interpreting false positives.",
+        "Per-person PPE states and equipment-person associations are not evaluated from isolated box labels.",
+        "Overlap with model training data is unknown; this report does not establish an independent held-out test.",
+        "Latency includes the first pipeline call, excludes image I/O and depends on the recorded hardware."
+      ],
+      "report_path": "C:\\projeto-tcc\\projeto-tcc\\runs\\ppe-absence\\candidate-val.json"
+    },
+    "validation_selected": {
+      "kind": "cascade_fixed_threshold_detection_evaluation",
+      "timestamp_utc": "2026-09-28T11:04:14.921509+00:00",
+      "config": {
+        "data": "C:\\projeto-tcc\\projeto-tcc\\data\\ppe-absence.yaml",
+        "split": "val",
+        "confidence": 0.4,
+        "iou": 0.45,
+        "match_iou": 0.5,
+        "max_images": null,
+        "sample_selection": "sorted paths, first N; no shuffle",
+        "error_record_limit": 5000
+      },
+      "dataset": {
+        "source": "external_dataset",
+        "training_overlap": "unknown",
+        "held_out_verified": false,
+        "available_images": 119,
+        "evaluated_images": 119,
+        "names": {
+          "0": "helmet",
+          "1": "no-helmet",
+          "2": "no-vest",
+          "3": "person",
+          "4": "vest"
+        },
+        "evaluated_set_sha256": "dd02792770d6e11cb65992a46d4583d2e3898163f552319f15d6193f9bd85cec",
+        "hash_scope": "names, split and ordered evaluated image/label content hashes; missing labels marked explicitly",
+        "background_images": 0,
+        "images_without_scored_labels": 0,
+        "missing_label_files": [],
+        "empty_label_files": []
+      },
+      "coverage": {
+        "scored_classes": [
+          "person",
+          "helmet",
+          "vest",
+          "no_helmet",
+          "no_vest"
+        ],
+        "unannotated_canonical_classes": [],
+        "ignored_dataset_classes": {},
+        "ignored_predictions": {
+          "total": 0,
+          "by_label": {}
+        },
+        "ignored_ground_truth": {
+          "total": 0,
+          "by_label": {}
+        },
+        "predictions_below_confidence": 0
+      },
+      "per_class": {
+        "person": {
+          "tp": 218,
+          "fp": 19,
+          "fn": 23,
+          "ground_truth": 241,
+          "predictions": 237,
+          "precision": 0.919831223628692,
+          "recall": 0.9045643153526971
+        },
+        "helmet": {
+          "tp": 206,
+          "fp": 18,
+          "fn": 26,
+          "ground_truth": 232,
+          "predictions": 224,
+          "precision": 0.9196428571428571,
+          "recall": 0.8879310344827587
+        },
+        "vest": {
+          "tp": 115,
+          "fp": 7,
+          "fn": 26,
+          "ground_truth": 141,
+          "predictions": 122,
+          "precision": 0.9426229508196722,
+          "recall": 0.8156028368794326
+        },
+        "no_helmet": {
+          "tp": 5,
+          "fp": 0,
+          "fn": 6,
+          "ground_truth": 11,
+          "predictions": 5,
+          "precision": 1.0,
+          "recall": 0.45454545454545453
+        },
+        "no_vest": {
+          "tp": 57,
+          "fp": 11,
+          "fn": 33,
+          "ground_truth": 90,
+          "predictions": 68,
+          "precision": 0.8382352941176471,
+          "recall": 0.6333333333333333
+        }
+      },
+      "micro": {
+        "tp": 601,
+        "fp": 55,
+        "fn": 114,
+        "ground_truth": 715,
+        "predictions": 656,
+        "precision": 0.9161585365853658,
+        "recall": 0.8405594405594405
+      },
+      "errors_total": 169,
+      "errors_truncated": false,
+      "pipeline_latency_ms": {
+        "samples": 119,
+        "mean": 275.55825294043376,
+        "p50": 262.42610000190325,
+        "p95": 358.49807002232404,
+        "total": 32791.43209991162
+      },
+      "stage_latency_ms": {
+        "person": {
+          "samples": 119,
+          "mean": 145.24388067182662,
+          "p50": 135.8780000009574,
+          "p95": 186.6359399980865,
+          "total": 17284.021799947368
+        },
+        "ppe": {
+          "samples": 119,
+          "mean": 129.92773361175375,
+          "p50": 127.92129997978918,
+          "p95": 161.97901000268757,
+          "total": 15461.400299798697
+        }
+      },
+      "evaluation_wall_time_ms": 34689.970800012816,
+      "environment": {
+        "python": "3.12.14",
+        "platform": "Windows-11-10.0.26200-SP0",
+        "processor": "Intel64 Family 6 Model 186 Stepping 3, GenuineIntel",
+        "pipeline": "CascadePipeline",
+        "stages": {
+          "person_detector": {
+            "device": "cpu",
+            "configured_model_path": "models/yolo11n.pt",
+            "configured_device": "cpu",
+            "configured_confidence": 0.4,
+            "configured_iou": 0.45,
+            "configured_imgsz": 640
+          },
+          "ppe_detector": {
+            "device": "cpu",
+            "configured_model_path": "runs/train/ppe_absence/weights/best.pt",
+            "configured_device": "cpu",
+            "configured_confidence": 0.4,
+            "configured_iou": 0.45,
+            "configured_imgsz": 640
+          }
+        }
+      },
+      "limitations": [
+        "Fixed-threshold box precision/recall, not AP or mAP; no confidence sweep.",
+        "Only classes declared in YAML are scored; declaration does not prove exhaustive annotation.",
+        "Missing label files are treated as background; review the explicit list before interpreting false positives.",
+        "Per-person PPE states and equipment-person associations are not evaluated from isolated box labels.",
+        "Overlap with model training data is unknown; this report does not establish an independent held-out test.",
+        "Latency includes the first pipeline call, excludes image I/O and depends on the recorded hardware."
+      ],
+      "report_path": "C:\\projeto-tcc\\projeto-tcc\\runs\\ppe-absence\\finetuned-val.json"
+    },
+    "test_selected": {
+      "kind": "cascade_fixed_threshold_detection_evaluation",
+      "timestamp_utc": "2026-09-28T11:05:16.551725+00:00",
+      "config": {
+        "data": "C:\\projeto-tcc\\projeto-tcc\\data\\ppe-absence.yaml",
+        "split": "test",
+        "confidence": 0.4,
+        "iou": 0.45,
+        "match_iou": 0.5,
+        "max_images": null,
+        "sample_selection": "sorted paths, first N; no shuffle",
+        "error_record_limit": 5000
+      },
+      "dataset": {
+        "source": "external_dataset",
+        "training_overlap": "unknown",
+        "held_out_verified": false,
+        "available_images": 90,
+        "evaluated_images": 90,
+        "names": {
+          "0": "helmet",
+          "1": "no-helmet",
+          "2": "no-vest",
+          "3": "person",
+          "4": "vest"
+        },
+        "evaluated_set_sha256": "d8e25c501ba27ca741d58bbc8c4008a386c2aa3685166c60f1f80060a165f2e5",
+        "hash_scope": "names, split and ordered evaluated image/label content hashes; missing labels marked explicitly",
+        "background_images": 0,
+        "images_without_scored_labels": 0,
+        "missing_label_files": [],
+        "empty_label_files": []
+      },
+      "coverage": {
+        "scored_classes": [
+          "person",
+          "helmet",
+          "vest",
+          "no_helmet",
+          "no_vest"
+        ],
+        "unannotated_canonical_classes": [],
+        "ignored_dataset_classes": {},
+        "ignored_predictions": {
+          "total": 0,
+          "by_label": {}
+        },
+        "ignored_ground_truth": {
+          "total": 0,
+          "by_label": {}
+        },
+        "predictions_below_confidence": 0
+      },
+      "per_class": {
+        "person": {
+          "tp": 186,
+          "fp": 44,
+          "fn": 28,
+          "ground_truth": 214,
+          "predictions": 230,
+          "precision": 0.808695652173913,
+          "recall": 0.8691588785046729
+        },
+        "helmet": {
+          "tp": 178,
+          "fp": 30,
+          "fn": 17,
+          "ground_truth": 195,
+          "predictions": 208,
+          "precision": 0.8557692307692307,
+          "recall": 0.9128205128205128
+        },
+        "vest": {
+          "tp": 93,
+          "fp": 15,
+          "fn": 36,
+          "ground_truth": 129,
+          "predictions": 108,
+          "precision": 0.8611111111111112,
+          "recall": 0.7209302325581395
+        },
+        "no_helmet": {
+          "tp": 6,
+          "fp": 3,
+          "fn": 18,
+          "ground_truth": 24,
+          "predictions": 9,
+          "precision": 0.6666666666666666,
+          "recall": 0.25
+        },
+        "no_vest": {
+          "tp": 39,
+          "fp": 17,
+          "fn": 22,
+          "ground_truth": 61,
+          "predictions": 56,
+          "precision": 0.6964285714285714,
+          "recall": 0.639344262295082
+        }
+      },
+      "micro": {
+        "tp": 502,
+        "fp": 109,
+        "fn": 121,
+        "ground_truth": 623,
+        "predictions": 611,
+        "precision": 0.8216039279869067,
+        "recall": 0.8057784911717496
+      },
+      "errors_total": 230,
+      "errors_truncated": false,
+      "pipeline_latency_ms": {
+        "samples": 90,
+        "mean": 303.57820000046763,
+        "p50": 291.2351499981014,
+        "p95": 460.3357050160412,
+        "total": 27322.038000042085
+      },
+      "stage_latency_ms": {
+        "person": {
+          "samples": 90,
+          "mean": 160.2267288893927,
+          "p50": 153.44289998756722,
+          "p95": 269.9264150098315,
+          "total": 14420.405600045342
+        },
+        "ppe": {
+          "samples": 90,
+          "mean": 142.95734888809318,
+          "p50": 139.79324999672826,
+          "p95": 222.99860501370858,
+          "total": 12866.161399928387
+        }
+      },
+      "evaluation_wall_time_ms": 28901.541200000793,
+      "environment": {
+        "python": "3.12.14",
+        "platform": "Windows-11-10.0.26200-SP0",
+        "processor": "Intel64 Family 6 Model 186 Stepping 3, GenuineIntel",
+        "pipeline": "CascadePipeline",
+        "stages": {
+          "person_detector": {
+            "device": "cpu",
+            "configured_model_path": "models/yolo11n.pt",
+            "configured_device": "cpu",
+            "configured_confidence": 0.4,
+            "configured_iou": 0.45,
+            "configured_imgsz": 640
+          },
+          "ppe_detector": {
+            "device": "cpu",
+            "configured_model_path": "runs/train/ppe_absence/weights/best.pt",
+            "configured_device": "cpu",
+            "configured_confidence": 0.4,
+            "configured_iou": 0.45,
+            "configured_imgsz": 640
+          }
+        }
+      },
+      "limitations": [
+        "Fixed-threshold box precision/recall, not AP or mAP; no confidence sweep.",
+        "Only classes declared in YAML are scored; declaration does not prove exhaustive annotation.",
+        "Missing label files are treated as background; review the explicit list before interpreting false positives.",
+        "Per-person PPE states and equipment-person associations are not evaluated from isolated box labels.",
+        "Overlap with model training data is unknown; this report does not establish an independent held-out test.",
+        "Latency includes the first pipeline call, excludes image I/O and depends on the recorded hardware."
+      ],
+      "report_path": "C:\\projeto-tcc\\projeto-tcc\\runs\\ppe-absence\\finetuned-test.json"
+    },
+    "historical_test_selected": {
+      "kind": "cascade_fixed_threshold_detection_evaluation",
+      "timestamp_utc": "2026-09-28T11:07:22.986899+00:00",
+      "config": {
+        "data": "C:\\projeto-tcc\\projeto-tcc\\data\\construction-ppe.yaml",
+        "split": "test",
+        "confidence": 0.4,
+        "iou": 0.45,
+        "match_iou": 0.5,
+        "max_images": null,
+        "sample_selection": "sorted paths, first N; no shuffle",
+        "error_record_limit": 5000
+      },
+      "dataset": {
+        "source": "external_dataset",
+        "training_overlap": "unknown",
+        "held_out_verified": false,
+        "available_images": 141,
+        "evaluated_images": 141,
+        "names": {
+          "0": "helmet",
+          "1": "gloves",
+          "2": "vest",
+          "3": "boots",
+          "4": "goggles",
+          "5": "none",
+          "6": "Person",
+          "7": "no_helmet",
+          "8": "no_goggle",
+          "9": "no_gloves",
+          "10": "no_boots"
+        },
+        "evaluated_set_sha256": "29fb253a508a55f69894b178122757814cec3863d8c8e7d1dc56d11f260ee1c3",
+        "hash_scope": "names, split and ordered evaluated image/label content hashes; missing labels marked explicitly",
+        "background_images": 0,
+        "images_without_scored_labels": 0,
+        "missing_label_files": [],
+        "empty_label_files": []
+      },
+      "coverage": {
+        "scored_classes": [
+          "person",
+          "helmet",
+          "vest",
+          "no_helmet"
+        ],
+        "unannotated_canonical_classes": [
+          "no_vest"
+        ],
+        "ignored_dataset_classes": {
+          "1": "gloves",
+          "3": "boots",
+          "4": "goggles",
+          "5": "none",
+          "8": "no_goggle",
+          "9": "no_gloves",
+          "10": "no_boots"
+        },
+        "ignored_predictions": {
+          "total": 49,
+          "by_label": {
+            "no_vest": 49
+          }
+        },
+        "ignored_ground_truth": {
+          "total": 605,
+          "by_label": {
+            "gloves": 163,
+            "boots": 211,
+            "goggles": 52,
+            "no_goggle": 33,
+            "none": 65,
+            "no_gloves": 58,
+            "no_boots": 23
+          }
+        },
+        "predictions_below_confidence": 0
+      },
+      "per_class": {
+        "person": {
+          "tp": 186,
+          "fp": 51,
+          "fn": 50,
+          "ground_truth": 236,
+          "predictions": 237,
+          "precision": 0.7848101265822784,
+          "recall": 0.788135593220339
+        },
+        "helmet": {
+          "tp": 153,
+          "fp": 12,
+          "fn": 39,
+          "ground_truth": 192,
+          "predictions": 165,
+          "precision": 0.9272727272727272,
+          "recall": 0.796875
+        },
+        "vest": {
+          "tp": 126,
+          "fp": 11,
+          "fn": 52,
+          "ground_truth": 178,
+          "predictions": 137,
+          "precision": 0.9197080291970803,
+          "recall": 0.7078651685393258
+        },
+        "no_helmet": {
+          "tp": 10,
+          "fp": 13,
+          "fn": 30,
+          "ground_truth": 40,
+          "predictions": 23,
+          "precision": 0.43478260869565216,
+          "recall": 0.25
+        }
+      },
+      "micro": {
+        "tp": 475,
+        "fp": 87,
+        "fn": 171,
+        "ground_truth": 646,
+        "predictions": 562,
+        "precision": 0.8451957295373665,
+        "recall": 0.7352941176470589
+      },
+      "errors_total": 258,
+      "errors_truncated": false,
+      "pipeline_latency_ms": {
+        "samples": 141,
+        "mean": 322.57864468009376,
+        "p50": 300.1223999890499,
+        "p95": 502.09670001640916,
+        "total": 45483.58889989322
+      },
+      "stage_latency_ms": {
+        "person": {
+          "samples": 141,
+          "mean": 170.86893191386892,
+          "p50": 155.5688999942504,
+          "p95": 291.06799999135546,
+          "total": 24092.51939985552
+        },
+        "ppe": {
+          "samples": 141,
+          "mean": 151.2867099285978,
+          "p50": 142.9849000123795,
+          "p95": 267.1150999958627,
+          "total": 21331.426099932287
+        }
+      },
+      "evaluation_wall_time_ms": 48358.09260001406,
+      "environment": {
+        "python": "3.12.14",
+        "platform": "Windows-11-10.0.26200-SP0",
+        "processor": "Intel64 Family 6 Model 186 Stepping 3, GenuineIntel",
+        "pipeline": "CascadePipeline",
+        "stages": {
+          "person_detector": {
+            "device": "cpu",
+            "configured_model_path": "models/yolo11n.pt",
+            "configured_device": "cpu",
+            "configured_confidence": 0.4,
+            "configured_iou": 0.45,
+            "configured_imgsz": 640
+          },
+          "ppe_detector": {
+            "device": "cpu",
+            "configured_model_path": "runs/train/ppe_absence/weights/best.pt",
+            "configured_device": "cpu",
+            "configured_confidence": 0.4,
+            "configured_iou": 0.45,
+            "configured_imgsz": 640
+          }
+        }
+      },
+      "limitations": [
+        "Fixed-threshold box precision/recall, not AP or mAP; no confidence sweep.",
+        "Only classes declared in YAML are scored; declaration does not prove exhaustive annotation.",
+        "Missing label files are treated as background; review the explicit list before interpreting false positives.",
+        "Per-person PPE states and equipment-person associations are not evaluated from isolated box labels.",
+        "Overlap with model training data is unknown; this report does not establish an independent held-out test.",
+        "Latency includes the first pipeline call, excludes image I/O and depends on the recorded hardware."
+      ],
+      "report_path": "C:\\projeto-tcc\\projeto-tcc\\runs\\ppe-absence\\finetuned-construction-test.json"
+    },
+    "ppe_detector_test": {
+      "kind": "validation",
+      "environment": {
+        "timestamp_utc": "2026-09-28T11:08:02.577928+00:00",
+        "python": "3.12.14",
+        "platform": "Windows-11-10.0.26200-SP0",
+        "processor": "Intel64 Family 6 Model 186 Stepping 3, GenuineIntel",
+        "device": "cpu",
+        "versions": {
+          "ultralytics": "8.3.203",
+          "torch": "2.8.0",
+          "numpy": "2.2.6",
+          "onnxruntime": "1.22.1",
+          "openvino": "2025.4.1",
+          "nncf": "2.19.0",
+          "tensorrt": null
+        }
+      },
+      "config": {
+        "model": "runs/train/ppe_absence/weights/best.pt",
+        "data": "C:\\projeto-tcc\\projeto-tcc\\data\\ppe-absence-transfer.yaml",
+        "imgsz": 640,
+        "batch": 1,
+        "requested_imgsz": 640,
+        "requested_batch": 1,
+        "split": "test",
+        "confidence": 0.001,
+        "iou": 0.7
+      },
+      "metrics": {
+        "metrics/precision(B)": 0.7533368457937819,
+        "metrics/recall(B)": 0.7244849684554338,
+        "metrics/mAP50(B)": 0.7506013642508151,
+        "metrics/mAP50-95(B)": 0.39487358595703453,
+        "fitness": 0.39487358595703453,
+        "mAP50": 0.7506013642508151,
+        "mAP50_95": 0.39487358595703453,
+        "precision": 0.7533368457937819,
+        "recall": 0.7244849684554338
+      },
+      "per_class": [
+        {
+          "class_id": 0,
+          "name": "Hardhat",
+          "instances": 195,
+          "evaluated": true,
+          "precision": 0.8382870104432542,
+          "recall": 0.9304305865928516,
+          "mAP50": 0.9290916218759552,
+          "mAP50_95": 0.5100877166542872
+        },
+        {
+          "class_id": 1,
+          "name": "Mask",
+          "instances": 0,
+          "evaluated": false,
+          "precision": null,
+          "recall": null,
+          "mAP50": null,
+          "mAP50_95": null
+        },
+        {
+          "class_id": 2,
+          "name": "NO-Hardhat",
+          "instances": 24,
+          "evaluated": true,
+          "precision": 0.6992587432256457,
+          "recall": 0.3881780340319534,
+          "mAP50": 0.4983705544394795,
+          "mAP50_95": 0.22288697303790786
+        },
+        {
+          "class_id": 3,
+          "name": "NO-Mask",
+          "instances": 0,
+          "evaluated": false,
+          "precision": null,
+          "recall": null,
+          "mAP50": null,
+          "mAP50_95": null
+        },
+        {
+          "class_id": 4,
+          "name": "NO-Safety Vest",
+          "instances": 61,
+          "evaluated": true,
+          "precision": 0.6410779895572629,
+          "recall": 0.6557377049180327,
+          "mAP50": 0.6265066604923004,
+          "mAP50_95": 0.2589941397319252
+        },
+        {
+          "class_id": 5,
+          "name": "Person",
+          "instances": 214,
+          "evaluated": true,
+          "precision": 0.7799465045985208,
+          "recall": 0.897196261682243,
+          "mAP50": 0.8716065425151854,
+          "mAP50_95": 0.5466017871680119
+        },
+        {
+          "class_id": 6,
+          "name": "Safety Cone",
+          "instances": 0,
+          "evaluated": false,
+          "precision": null,
+          "recall": null,
+          "mAP50": null,
+          "mAP50_95": null
+        },
+        {
+          "class_id": 7,
+          "name": "Safety Vest",
+          "instances": 129,
+          "evaluated": true,
+          "precision": 0.8081139811442258,
+          "recall": 0.7508822550520877,
+          "mAP50": 0.8274314419311546,
+          "mAP50_95": 0.43579731319304055
+        },
+        {
+          "class_id": 8,
+          "name": "machinery",
+          "instances": 0,
+          "evaluated": false,
+          "precision": null,
+          "recall": null,
+          "mAP50": null,
+          "mAP50_95": null
+        },
+        {
+          "class_id": 9,
+          "name": "vehicle",
+          "instances": 0,
+          "evaluated": false,
+          "precision": null,
+          "recall": null,
+          "mAP50": null,
+          "mAP50_95": null
+        }
+      ],
+      "provenance": {
+        "dataset_yaml": {
+          "path": "C:\\projeto-tcc\\projeto-tcc\\data\\ppe-absence-transfer.yaml",
+          "sha256": "5d79ea82efe16500281c4f5eb4c10ef2643b91e7f00823ab663259078337ef56"
+        },
+        "resolved_dataset": {
+          "path": "C:\\projeto-tcc\\projeto-tcc\\runs\\validate\\ppe_absence_test\\dataset.resolved.yaml",
+          "sha256": "482c84919f1b3c06dd47b3dcf0af444660d52664af29266c93f4f2737a6f4dcf"
+        },
+        "dataset_audit": "C:\\projeto-tcc\\projeto-tcc\\runs\\validate\\ppe_absence_test\\dataset-audit.json",
+        "split_manifests": {
+          "train": {
+            "path": "C:\\projeto-tcc\\projeto-tcc\\runs\\validate\\ppe_absence_test\\train.txt",
+            "sha256": "0a420df6149a28919de808658420f9f1fd1de8c19b8a2db8373cf78c1b2fa347"
+          },
+          "val": {
+            "path": "C:\\projeto-tcc\\projeto-tcc\\runs\\validate\\ppe_absence_test\\val.txt",
+            "sha256": "02d7981a177e26909c918841e5e4355f50239638c2fda620080519d1851727b6"
+          },
+          "test": {
+            "path": "C:\\projeto-tcc\\projeto-tcc\\runs\\validate\\ppe_absence_test\\test.txt",
+            "sha256": "44fc6a766b8b32c7db0d05c09659239de5a635f623a6447f4808f1e051f7dd6d"
+          }
+        },
+        "weights": {
+          "path": "C:\\projeto-tcc\\projeto-tcc\\runs\\train\\ppe_absence\\weights\\best.pt",
+          "sha256": "14ac39c777e94864006bf5842a941c00e1b50a7b21f60e3b676d4beab6949d0b"
+        }
+      },
+      "speed_ms_per_image": {
+        "preprocess": 1.2032811109545745,
+        "inference": 162.27305111177785,
+        "loss": 0.0013988914563217096,
+        "postprocess": 1.3217633334635241
+      },
+      "class_names": {
+        "0": "Hardhat",
+        "1": "Mask",
+        "2": "NO-Hardhat",
+        "3": "NO-Mask",
+        "4": "NO-Safety Vest",
+        "5": "Person",
+        "6": "Safety Cone",
+        "7": "Safety Vest",
+        "8": "machinery",
+        "9": "vehicle"
+      },
+      "artifacts": {
+        "BoxF1_curve.png": "C:\\projeto-tcc\\projeto-tcc\\runs\\validate\\ppe_absence_test\\BoxF1_curve.png",
+        "BoxPR_curve.png": "C:\\projeto-tcc\\projeto-tcc\\runs\\validate\\ppe_absence_test\\BoxPR_curve.png",
+        "BoxP_curve.png": "C:\\projeto-tcc\\projeto-tcc\\runs\\validate\\ppe_absence_test\\BoxP_curve.png",
+        "BoxR_curve.png": "C:\\projeto-tcc\\projeto-tcc\\runs\\validate\\ppe_absence_test\\BoxR_curve.png",
+        "confusion_matrix.png": "C:\\projeto-tcc\\projeto-tcc\\runs\\validate\\ppe_absence_test\\confusion_matrix.png",
+        "confusion_matrix_normalized.png": "C:\\projeto-tcc\\projeto-tcc\\runs\\validate\\ppe_absence_test\\confusion_matrix_normalized.png",
+        "dataset-audit.json": "C:\\projeto-tcc\\projeto-tcc\\runs\\validate\\ppe_absence_test\\dataset-audit.json",
+        "predictions.json": "C:\\projeto-tcc\\projeto-tcc\\runs\\validate\\ppe_absence_test\\predictions.json"
+      },
+      "report_path": "C:\\projeto-tcc\\projeto-tcc\\runs\\validate\\ppe_absence_test\\validation.json"
+    },
+    "training": {
+      "kind": "training",
+      "environment": {
+        "timestamp_utc": "2026-09-24T17:08:27.211481+00:00",
+        "python": "3.12.14",
+        "platform": "Windows-11-10.0.26200-SP0",
+        "processor": "Intel64 Family 6 Model 186 Stepping 3, GenuineIntel",
+        "device": "cpu",
+        "versions": {
+          "ultralytics": "8.3.203",
+          "torch": "2.8.0",
+          "numpy": "2.2.6",
+          "onnxruntime": "1.22.1",
+          "openvino": "2025.4.1",
+          "nncf": "2.19.0",
+          "tensorrt": null
+        }
+      },
+      "config": {
+        "model": "models/ppe/absence-base.pt",
+        "data": "C:\\projeto-tcc\\projeto-tcc\\data\\ppe-absence-transfer.yaml",
+        "epochs": 10,
+        "imgsz": 416,
+        "batch": 8,
+        "workers": 0,
+        "seed": 42,
+        "amp": false,
+        "freeze": 10
+      },
+      "metrics": {
+        "metrics/precision(B)": 0.8626371359110733,
+        "metrics/recall(B)": 0.7716969520848139,
+        "metrics/mAP50(B)": 0.8370183014400766,
+        "metrics/mAP50-95(B)": 0.47952399171635796,
+        "fitness": 0.47952399171635796
+      },
+      "per_class": [
+        {
+          "class_id": 0,
+          "name": "Hardhat",
+          "instances": 232,
+          "evaluated": true,
+          "precision": 0.8705949096116171,
+          "recall": 0.9224137931034483,
+          "mAP50": 0.94251758512309,
+          "mAP50_95": 0.5495467895410409
+        },
+        {
+          "class_id": 1,
+          "name": "Mask",
+          "instances": 0,
+          "evaluated": false,
+          "precision": null,
+          "recall": null,
+          "mAP50": null,
+          "mAP50_95": null
+        },
+        {
+          "class_id": 2,
+          "name": "NO-Hardhat",
+          "instances": 11,
+          "evaluated": true,
+          "precision": 1.0,
+          "recall": 0.3515276440909737,
+          "mAP50": 0.6201486577446944,
+          "mAP50_95": 0.2415257320025191
+        },
+        {
+          "class_id": 3,
+          "name": "NO-Mask",
+          "instances": 0,
+          "evaluated": false,
+          "precision": null,
+          "recall": null,
+          "mAP50": null,
+          "mAP50_95": null
+        },
+        {
+          "class_id": 4,
+          "name": "NO-Safety Vest",
+          "instances": 90,
+          "evaluated": true,
+          "precision": 0.7388425049350608,
+          "recall": 0.8111111111111111,
+          "mAP50": 0.7951188216426857,
+          "mAP50_95": 0.4406465655655813
+        },
+        {
+          "class_id": 5,
+          "name": "Person",
+          "instances": 241,
+          "evaluated": true,
+          "precision": 0.8743457434091496,
+          "recall": 0.9294605809128631,
+          "mAP50": 0.9314324107917983,
+          "mAP50_95": 0.6404732008540985
+        },
+        {
+          "class_id": 6,
+          "name": "Safety Cone",
+          "instances": 0,
+          "evaluated": false,
+          "precision": null,
+          "recall": null,
+          "mAP50": null,
+          "mAP50_95": null
+        },
+        {
+          "class_id": 7,
+          "name": "Safety Vest",
+          "instances": 141,
+          "evaluated": true,
+          "precision": 0.829402521599539,
+          "recall": 0.8439716312056738,
+          "mAP50": 0.895874031898114,
+          "mAP50_95": 0.5254276706185506
+        },
+        {
+          "class_id": 8,
+          "name": "machinery",
+          "instances": 0,
+          "evaluated": false,
+          "precision": null,
+          "recall": null,
+          "mAP50": null,
+          "mAP50_95": null
+        },
+        {
+          "class_id": 9,
+          "name": "vehicle",
+          "instances": 0,
+          "evaluated": false,
+          "precision": null,
+          "recall": null,
+          "mAP50": null,
+          "mAP50_95": null
+        }
+      ],
+      "provenance": {
+        "dataset_yaml": {
+          "path": "C:\\projeto-tcc\\projeto-tcc\\data\\ppe-absence-transfer.yaml",
+          "sha256": "5d79ea82efe16500281c4f5eb4c10ef2643b91e7f00823ab663259078337ef56"
+        },
+        "resolved_dataset": {
+          "path": "C:\\projeto-tcc\\projeto-tcc\\runs\\train\\ppe_absence\\dataset.resolved.yaml",
+          "sha256": "cb5afa30756c1b603d40802e00a8d359a71a358b84a83f41125247a7274dce86"
+        },
+        "dataset_audit": "C:\\projeto-tcc\\projeto-tcc\\runs\\train\\ppe_absence\\dataset-audit.json",
+        "split_manifests": {
+          "train": {
+            "path": "C:\\projeto-tcc\\projeto-tcc\\runs\\train\\ppe_absence\\train.txt",
+            "sha256": "0a420df6149a28919de808658420f9f1fd1de8c19b8a2db8373cf78c1b2fa347"
+          },
+          "val": {
+            "path": "C:\\projeto-tcc\\projeto-tcc\\runs\\train\\ppe_absence\\val.txt",
+            "sha256": "02d7981a177e26909c918841e5e4355f50239638c2fda620080519d1851727b6"
+          },
+          "test": {
+            "path": "C:\\projeto-tcc\\projeto-tcc\\runs\\train\\ppe_absence\\test.txt",
+            "sha256": "44fc6a766b8b32c7db0d05c09659239de5a635f623a6447f4808f1e051f7dd6d"
+          }
+        },
+        "initial_weights": {
+          "path": "C:\\projeto-tcc\\projeto-tcc\\models\\ppe\\absence-base.pt",
+          "sha256": "f55600c106ba7952c64d2aec70dc673240b422bdbd989d395d301b0d5426b02b"
+        },
+        "best_weights": {
+          "path": "C:\\projeto-tcc\\projeto-tcc\\runs\\train\\ppe_absence\\weights\\best.pt",
+          "sha256": "14ac39c777e94864006bf5842a941c00e1b50a7b21f60e3b676d4beab6949d0b"
+        },
+        "last_weights": {
+          "path": "C:\\projeto-tcc\\projeto-tcc\\runs\\train\\ppe_absence\\weights\\last.pt",
+          "sha256": "38cb3a1d396b1f6093d6e482d8e1ce26e374b6290804cad3acf1715e60246556"
+        }
+      },
+      "best_weights": "C:\\projeto-tcc\\projeto-tcc\\runs\\train\\ppe_absence\\weights\\best.pt",
+      "last_weights": "C:\\projeto-tcc\\projeto-tcc\\runs\\train\\ppe_absence\\weights\\last.pt",
+      "report_path": "C:\\projeto-tcc\\projeto-tcc\\runs\\train\\ppe_absence\\training.json"
+    }
+  },
+  "source_reports": {
+    "validation_previous": {
+      "path": "runs/ppe-absence/previous-val.json",
+      "sha256": "57f1a8a9dd889f3f9c5fa75614d2f1a513cca6be84a85920badb28730595215e"
+    },
+    "validation_external_candidate": {
+      "path": "runs/ppe-absence/candidate-val.json",
+      "sha256": "4da44f278be226c75c4716106e080e66b7efd5c8248e24824db4d3312a9692db"
+    },
+    "validation_selected": {
+      "path": "runs/ppe-absence/finetuned-val.json",
+      "sha256": "d419e6fbe797ce19e3fc197b21cd3b88d8c8c4eab034bd0e1bd32e3a84aa864b"
+    },
+    "test_selected": {
+      "path": "runs/ppe-absence/finetuned-test.json",
+      "sha256": "a05927344c461654d146f6593e30bf4a3870e0ba4ca7a99bb14b141a3c8d229c"
+    },
+    "historical_test_selected": {
+      "path": "runs/ppe-absence/finetuned-construction-test.json",
+      "sha256": "14342d234b0a909c34db7678451167358bfa68c3c655ba797d9b370f069bf871"
+    },
+    "ppe_detector_test": {
+      "path": "runs/validate/ppe_absence_test/validation.json",
+      "sha256": "9e915b6b18008323ea5e825208cc3fa39b79fcb5d2116b85482c1c9678e594f4"
+    },
+    "training": {
+      "path": "runs/train/ppe_absence/training.json",
+      "sha256": "6892fe1fecc0007b4bf9c833d4bdbf24d3d5e1a0c36025a6af90a7586ed0933e"
+    }
+  },
+  "functional_smoke": {
+    "purpose": "Teste funcional com exemplos selecionados de validação; não mede qualidade estatística nem substitui validação de campo.",
+    "source_dataset": "LibreYOLO/construction-safety-gsnvb",
+    "source_split": "valid",
+    "external_messages_sent": 0,
+    "ppe_model": "C:\\projeto-tcc\\projeto-tcc\\runs\\train\\ppe_absence\\weights\\best.pt",
+    "ppe_model_sha256": "14ac39c777e94864006bf5842a941c00e1b50a7b21f60e3b676d4beab6949d0b",
+    "examples": [
+      {
+        "source": "C:\\projeto-tcc\\projeto-tcc\\data\\datasets\\ppe-absence\\valid\\images\\ppe_0079_jpg.rf.a35f88602312cf4e6bd564a88307699a.jpg",
+        "source_sha256": "1df87d611a538c0e9351e18f02875f3de095814ef4a32b1937f04685062228d2",
+        "result": {
+          "frames": 1,
+          "ppe_executed_frames": 1,
+          "ppe_skipped_frames": 0,
+          "person_device": "cpu",
+          "ppe_device": "cpu",
+          "person_model": "C:\\projeto-tcc\\projeto-tcc\\models\\yolo11n.pt",
+          "ppe_model": "C:\\projeto-tcc\\projeto-tcc\\runs\\train\\ppe_absence\\weights\\best.pt",
+          "observations_by_status": {
+            "uncertain": 1,
+            "unsafe": 1,
+            "ok": 1
+          },
+          "events_saved": [
+            "7dc06e73-312c-4df6-8295-e1ef6b66d2c6"
+          ],
+          "elapsed_seconds": 0.2727714000211563,
+          "output": "C:\\projeto-tcc\\projeto-tcc\\runs\\ppe-absence\\smoke\\ppe_0079\\frames.jsonl",
+          "snapshot": "C:\\projeto-tcc\\projeto-tcc\\runs\\ppe-absence\\smoke\\ppe_0079\\snapshot.jpg",
+          "event_timing_warning": "",
+          "retention_warning": "",
+          "note": "Contagens por frame; OK significa EPIs detectados, não certificação de segurança. Sem envio externo."
+        },
+        "counts": {
+          "person": 3,
+          "helmet": 3,
+          "vest": 1,
+          "no_vest": 1
+        },
+        "assessments": [
+          {
+            "person": {
+              "class_id": 0,
+              "label": "person",
+              "confidence": 0.6932565569877625,
+              "bbox": [
+                56.538700103759766,
+                152.11129760742188,
+                129.6351318359375,
+                491.7525329589844
+              ]
+            },
+            "index": 1,
+            "status": "uncertain",
+            "present": [
+              "helmet"
+            ],
+            "absent": [],
+            "uncertain": [
+              "vest"
+            ],
+            "reasons": [
+              "colete: sem evidência suficiente; não detectar o EPI não comprova ausência."
+            ]
+          },
+          {
+            "person": {
+              "class_id": 0,
+              "label": "person",
+              "confidence": 0.8351784944534302,
+              "bbox": [
+                107.46578216552734,
+                1.649169921875,
+                313.3413391113281,
+                560.9321899414062
+              ]
+            },
+            "index": 2,
+            "status": "unsafe",
+            "present": [
+              "helmet"
+            ],
+            "absent": [
+              "vest"
+            ],
+            "uncertain": [],
+            "reasons": [
+              "colete: classe negativa explícita detectada; revisão visual necessária."
+            ]
+          },
+          {
+            "person": {
+              "class_id": 0,
+              "label": "person",
+              "confidence": 0.851223349571228,
+              "bbox": [
+                407.52911376953125,
+                77.42120361328125,
+                563.7120971679688,
+                513.5227661132812
+              ]
+            },
+            "index": 3,
+            "status": "ok",
+            "present": [
+              "helmet",
+              "vest"
+            ],
+            "absent": [],
+            "uncertain": [],
+            "reasons": []
+          }
+        ]
+      },
+      {
+        "source": "C:\\projeto-tcc\\projeto-tcc\\data\\datasets\\ppe-absence\\valid\\images\\ppe_0164_jpg.rf.b1a042a7c9a4bbda26c3088e29eb73f1.jpg",
+        "source_sha256": "f63217d207ed436fe2c6cceef4d20f4e0d3637ab90dc953bc77294094c2f2b46",
+        "result": {
+          "frames": 1,
+          "ppe_executed_frames": 1,
+          "ppe_skipped_frames": 0,
+          "person_device": "cpu",
+          "ppe_device": "cpu",
+          "person_model": "C:\\projeto-tcc\\projeto-tcc\\models\\yolo11n.pt",
+          "ppe_model": "C:\\projeto-tcc\\projeto-tcc\\runs\\train\\ppe_absence\\weights\\best.pt",
+          "observations_by_status": {
+            "unsafe": 5,
+            "uncertain": 2
+          },
+          "events_saved": [
+            "b2323738-b938-4f10-bb34-02c6527b77cb"
+          ],
+          "elapsed_seconds": 0.2190627000236418,
+          "output": "C:\\projeto-tcc\\projeto-tcc\\runs\\ppe-absence\\smoke\\ppe_0164\\frames.jsonl",
+          "snapshot": "C:\\projeto-tcc\\projeto-tcc\\runs\\ppe-absence\\smoke\\ppe_0164\\snapshot.jpg",
+          "event_timing_warning": "",
+          "retention_warning": "",
+          "note": "Contagens por frame; OK significa EPIs detectados, não certificação de segurança. Sem envio externo."
+        },
+        "counts": {
+          "person": 7,
+          "no_vest": 6,
+          "helmet": 3,
+          "vest": 1,
+          "no_helmet": 1
+        },
+        "assessments": [
+          {
+            "person": {
+              "class_id": 0,
+              "label": "person",
+              "confidence": 0.8323367238044739,
+              "bbox": [
+                76.43299865722656,
+                239.76991271972656,
+                175.22474670410156,
+                618.478759765625
+              ]
+            },
+            "index": 1,
+            "status": "unsafe",
+            "present": [],
+            "absent": [
+              "vest"
+            ],
+            "uncertain": [
+              "helmet"
+            ],
+            "reasons": [
+              "capacete: sem evidência suficiente; não detectar o EPI não comprova ausência.",
+              "colete: classe negativa explícita detectada; revisão visual necessária."
+            ]
+          },
+          {
+            "person": {
+              "class_id": 0,
+              "label": "person",
+              "confidence": 0.7533138990402222,
+              "bbox": [
+                181.4300537109375,
+                260.85308837890625,
+                243.33721923828125,
+                610.5992431640625
+              ]
+            },
+            "index": 2,
+            "status": "uncertain",
+            "present": [],
+            "absent": [],
+            "uncertain": [
+              "helmet",
+              "vest"
+            ],
+            "reasons": [
+              "capacete: sobreposição de pessoas na região do EPI; possível oclusão.",
+              "colete: sobreposição de pessoas na região do EPI; possível oclusão."
+            ]
+          },
+          {
+            "person": {
+              "class_id": 0,
+              "label": "person",
+              "confidence": 0.77788245677948,
+              "bbox": [
+                218.89389038085938,
+                262.6175537109375,
+                301.3930969238281,
+                613.5261840820312
+              ]
+            },
+            "index": 3,
+            "status": "unsafe",
+            "present": [],
+            "absent": [
+              "vest"
+            ],
+            "uncertain": [
+              "helmet"
+            ],
+            "reasons": [
+              "capacete: associação ambígua entre pessoa e EPI.",
+              "colete: classe negativa explícita detectada; revisão visual necessária."
+            ]
+          },
+          {
+            "person": {
+              "class_id": 0,
+              "label": "person",
+              "confidence": 0.7314016819000244,
+              "bbox": [
+                276.14678955078125,
+                227.315185546875,
+                369.16326904296875,
+                614.635986328125
+              ]
+            },
+            "index": 4,
+            "status": "unsafe",
+            "present": [
+              "helmet"
+            ],
+            "absent": [
+              "vest"
+            ],
+            "uncertain": [],
+            "reasons": [
+              "colete: classe negativa explícita detectada; revisão visual necessária."
+            ]
+          },
+          {
+            "person": {
+              "class_id": 0,
+              "label": "person",
+              "confidence": 0.8186156153678894,
+              "bbox": [
+                356.71832275390625,
+                299.86114501953125,
+                435.57672119140625,
+                623.5182495117188
+              ]
+            },
+            "index": 5,
+            "status": "uncertain",
+            "present": [
+              "vest"
+            ],
+            "absent": [],
+            "uncertain": [
+              "helmet"
+            ],
+            "reasons": [
+              "capacete: sem evidência suficiente; não detectar o EPI não comprova ausência."
+            ]
+          },
+          {
+            "person": {
+              "class_id": 0,
+              "label": "person",
+              "confidence": 0.738447368144989,
+              "bbox": [
+                420.62005615234375,
+                247.4322509765625,
+                487.75323486328125,
+                620.5203857421875
+              ]
+            },
+            "index": 6,
+            "status": "unsafe",
+            "present": [],
+            "absent": [
+              "vest"
+            ],
+            "uncertain": [
+              "helmet"
+            ],
+            "reasons": [
+              "capacete: sem evidência suficiente; não detectar o EPI não comprova ausência.",
+              "colete: classe negativa explícita detectada; revisão visual necessária."
+            ]
+          },
+          {
+            "person": {
+              "class_id": 0,
+              "label": "person",
+              "confidence": 0.7904519438743591,
+              "bbox": [
+                494.5682678222656,
+                269.84173583984375,
+                560.0667724609375,
+                625.6231079101562
+              ]
+            },
+            "index": 7,
+            "status": "unsafe",
+            "present": [],
+            "absent": [
+              "helmet",
+              "vest"
+            ],
+            "uncertain": [],
+            "reasons": [
+              "capacete: classe negativa explícita detectada; revisão visual necessária.",
+              "colete: classe negativa explícita detectada; revisão visual necessária."
+            ]
+          }
+        ]
+      },
+      {
+        "source": "C:\\projeto-tcc\\projeto-tcc\\data\\datasets\\ppe-absence\\valid\\images\\ppe_0565_jpg.rf.58e3570954550267399e205a5c7283ed.jpg",
+        "source_sha256": "f5984311d51a2d2b4642f63d2eda086ea1b9d01954cf9f024fc4b5eb479ff109",
+        "result": {
+          "frames": 1,
+          "ppe_executed_frames": 1,
+          "ppe_skipped_frames": 0,
+          "person_device": "cpu",
+          "ppe_device": "cpu",
+          "person_model": "C:\\projeto-tcc\\projeto-tcc\\models\\yolo11n.pt",
+          "ppe_model": "C:\\projeto-tcc\\projeto-tcc\\runs\\train\\ppe_absence\\weights\\best.pt",
+          "observations_by_status": {
+            "uncertain": 1,
+            "unsafe": 1
+          },
+          "events_saved": [
+            "1369f8bd-2370-4a6a-ad74-758af4843373"
+          ],
+          "elapsed_seconds": 0.1991517999849748,
+          "output": "C:\\projeto-tcc\\projeto-tcc\\runs\\ppe-absence\\smoke\\ppe_0565\\frames.jsonl",
+          "snapshot": "C:\\projeto-tcc\\projeto-tcc\\runs\\ppe-absence\\smoke\\ppe_0565\\snapshot.jpg",
+          "event_timing_warning": "",
+          "retention_warning": "",
+          "note": "Contagens por frame; OK significa EPIs detectados, não certificação de segurança. Sem envio externo."
+        },
+        "counts": {
+          "person": 2,
+          "no_vest": 1,
+          "helmet": 2,
+          "no_helmet": 1
+        },
+        "assessments": [
+          {
+            "person": {
+              "class_id": 0,
+              "label": "person",
+              "confidence": 0.7835519313812256,
+              "bbox": [
+                83.81016540527344,
+                311.0914306640625,
+                145.38784790039062,
+                552.9849853515625
+              ]
+            },
+            "index": 1,
+            "status": "uncertain",
+            "present": [],
+            "absent": [],
+            "uncertain": [
+              "helmet",
+              "vest"
+            ],
+            "reasons": [
+              "capacete: associação ambígua entre pessoa e EPI.",
+              "colete: sem evidência suficiente; não detectar o EPI não comprova ausência."
+            ]
+          },
+          {
+            "person": {
+              "class_id": 0,
+              "label": "person",
+              "confidence": 0.7803362607955933,
+              "bbox": [
+                143.40591430664062,
+                305.38037109375,
+                183.08200073242188,
+                509.3470458984375
+              ]
+            },
+            "index": 2,
+            "status": "unsafe",
+            "present": [],
+            "absent": [
+              "helmet",
+              "vest"
+            ],
+            "uncertain": [],
+            "reasons": [
+              "capacete: classe negativa explícita detectada; revisão visual necessária.",
+              "colete: classe negativa explícita detectada; revisão visual necessária."
+            ]
+          }
+        ]
+      }
+    ],
+    "video": {
+      "source": "C:\\projeto-tcc\\projeto-tcc\\runs\\ppe-absence\\smoke\\repeated-scene-25fps.avi",
+      "source_sha256": "d1bc3934cb35f49ad2519f924fbcbdf7968937b96e3e44a8a9e773f1797cce89",
+      "construction": "100 repetições de uma imagem de validação + 3 quadros pretos; vídeo artificial, sem movimento real.",
+      "fps": 25,
+      "repeated_scene_frames": 100,
+      "empty_frames": 3,
+      "duration_seconds": 4.12,
+      "confirmation_seconds": 2.0,
+      "cooldown_seconds": 60.0,
+      "first_media_time_seconds": 0.0,
+      "event_media_time_seconds": 2.0,
+      "event_frame_index": 51,
+      "last_media_time_seconds": 4.08,
+      "result": {
+        "frames": 103,
+        "ppe_executed_frames": 100,
+        "ppe_skipped_frames": 3,
+        "person_device": "cpu",
+        "ppe_device": "cpu",
+        "person_model": "C:\\projeto-tcc\\projeto-tcc\\models\\yolo11n.pt",
+        "ppe_model": "C:\\projeto-tcc\\projeto-tcc\\runs\\train\\ppe_absence\\weights\\best.pt",
+        "observations_by_status": {
+          "uncertain": 100,
+          "unsafe": 100,
+          "ok": 100
+        },
+        "events_saved": [
+          "3cd4000d-bbc4-42d9-9a42-3f315df39436"
+        ],
+        "elapsed_seconds": 37.02349249998224,
+        "output": "C:\\projeto-tcc\\projeto-tcc\\runs\\ppe-absence\\smoke\\video-frames.jsonl",
+        "snapshot": null,
+        "event_timing_warning": "",
+        "retention_warning": "",
+        "note": "Contagens por frame; OK significa EPIs detectados, não certificação de segurança. Sem envio externo."
+      },
+      "checks": [
+        "103 frames processados",
+        "1 ocorrência após 2 s da mídia",
+        "nenhuma repetição durante cooldown",
+        "3 quadros sem pessoas pulam segundo detector",
+        "JPEG e JSON íntegros com câmera/local",
+        "nenhuma entrega externa"
+      ]
+    }
+  },
+  "automated_checks": {
+    "pytest": "504 passed in 27.24s",
+    "pip_check": "No broken requirements found.",
+    "compileall": "src scripts tests: exit 0",
+    "git_diff_check": "no whitespace errors"
+  },
+  "limitations": [
+    "No independent field validation or real webcam/RTSP test.",
+    "No actual Telegram or email message sent; configured interface and mocked transport tested.",
+    "Negative helmet recall remains only 25% on both test datasets; errors and positive-vest regression on Construction-PPE retained.",
+    "RF100 labels include semantic noise and out-of-domain images. Exact hash audit cannot establish camera/person independence or exclude pretrained overlap.",
+    "Mean AP covers five annotated classes of ten model outputs. Box metrics do not evaluate PPE-person association or final alert accuracy.",
+    "Earlier best.pt INT8 export is a different model lacking no_vest; new absence.pt has not been quantized."
+  ]
+}
