@@ -19,7 +19,7 @@ possui pesos, dataset anotado ou artefatos do resultado de mAP citado no artigo.
 | Detectar pessoa e então invocar outro modelo para EPI | `CascadePipeline` em `detection.py`: YOLO de pessoas habilita YOLO de EPI | Implementado; segundo estágio não executa sem pessoa. Testes verificam a condição. |
 | Análise por imagem e vídeo | `detect --source` aceita imagem, vídeo, webcam e RTSP | Implementado; janela OpenCV opcional e relatório JSONL independente da interface. |
 | Responder OK / Não seguro | Estados `ok`, `unsafe` e `uncertain` por pessoa | Implementado com incerteza explícita; falta validar a classificação final em cenas rotuladas por pessoa. |
-| Capacetes e coletes | Vocabulário normalizado, classes positivas e negativas; associação por região | Implementado para esse escopo. Outros EPIs exigem classes, regras e avaliação próprias. |
+| Capacetes e coletes | `absence.pt` com classes positivas e negativas explícitas; associação por região | Implementado e medido em dados públicos; recall de sem capacete ainda baixo e decisão por pessoa pendente de validação local. Outros EPIs exigem classes, regras e avaliação próprias. |
 | Armazenar imagem, câmera e momento | `EventStore` salva JPEG e JSON, com contexto de câmera e horário UTC | Implementado localmente; não é um banco de gestão multicâmera. |
 | Telegram com imagem e horário | Transporte direto `sendPhoto`, configurável na interface | Implementado e testável sem envio real; entrega real depende do bot e destino do operador. |
 | Metabase → N8N → Telegram | Não existe esse encadeamento | Pendente. O transporte direto é uma escolha do protótipo e difere do roteiro. |
@@ -27,7 +27,7 @@ possui pesos, dataset anotado ou artefatos do resultado de mAP citado no artigo.
 | Analista confirma ou descarta irregularidades e alimenta gráficos | Consulta/baixar evidências | Pendente: não há fluxo persistente de revisão humana nem base de rótulos revisados. |
 | Containerização | Dockerfile e Compose existentes | Implementados; acesso à câmera depende do host. Execução do container deve constar nas evidências quando testada. |
 | YOLOv5 descrito no artigo e solicitado nos comentários | Modelo atual: YOLO11n para pessoa + YOLO11n ajustado localmente para EPI | Divergência explícita. Falta comparação com YOLOv5 ou justificativa e atualização formal do texto. |
-| Treinamento com dados públicos e coleta in loco | Treino inicial real de 10 épocas em Construction-PPE, auditoria e avaliação | Parcial: treino local em dados públicos executado; coleta/anotação in loco e avaliação no cenário final pendentes. |
+| Treinamento com dados públicos e coleta in loco | Treino inicial em Construction-PPE e ajuste de 10 épocas em RF100, com ausência explícita de colete, auditoria e avaliação | Parcial: os dois experimentos locais foram executados; coleta/anotação in loco e avaliação no cenário final pendentes. |
 | Precisão, recall, mAP, FP/FN, FPS/tempo de resposta | `validate`, `evaluate-cascade`, `benchmark` e relatórios | Ferramentas implementadas; resultados e limitações reais constam em `VALIDATION.md`. |
 | mAP@0.5 = 0,841 apresentado no resumo | Sem pesos, split, logs e execução que sustentem o número para este TCC | **Não comprovado. Não apresentar como resultado próprio.** |
 
@@ -36,9 +36,27 @@ possui pesos, dataset anotado ou artefatos do resultado de mAP citado no artigo.
 Um candidato público YOLOv8n de EPI foi avaliado e descartado como modelo
 principal por desempenho insuficiente, especialmente para coletes. Em seguida,
 foi executado treinamento local de YOLO11n por 10 épocas em Construction-PPE,
-com resultados registrados em [VALIDATION.md](VALIDATION.md). São pesos
-produzidos nesta implementação sobre dados públicos; não representam coleta
-in loco, convergência garantida ou validação no cenário final.
+preservado em `models/ppe/best.pt`. A etapa seguinte ajustou um YOLO11n externo
+com classes de ausência explícita usando RF100 construction-safety-gsnvb:
+997 imagens de treino, 119 de validação e 90 de teste, dez épocas e primeiras
+dez camadas congeladas. O resultado promovido, `models/ppe/absence.pt`, é o
+padrão atual. A promoção verifica hash e correspondência de classes com o
+treinamento e preserva os arquivos anteriores, incluindo seu export INT8.
+
+No teste RF100, a cascata encontrou 39 das 61 caixas de sem colete (recall
+63,93%, precisão 69,64%) e 6 das 24 de sem capacete (recall 25%, precisão
+66,67%). Esse recall baixo mantém a detecção de ausência como limitação.
+A comparação no mesmo teste Construction-PPE também revelou uma troca:
+sem capacete passou de 5/40 para 10/40 acertos, com falsos positivos de 1
+para 13; colete caiu de 139/178 para 126/178 acertos. Portanto, a mudança
+amplia a cobertura de classes, mas não demonstra superioridade universal.
+
+Resultados e parâmetros completos estão em [VALIDATION.md](VALIDATION.md).
+O ajuste local utiliza dados públicos e pesos externos com sobreposição
+prévia desconhecida; não representa coleta in loco, convergência garantida
+ou validação no cenário final. O detector tem dez saídas, mas somente cinco
+classes anotadas nesse experimento. Procedência e protocolo constam em
+[ABSENCE_DATA.md](ABSENCE_DATA.md).
 O primeiro YOLO detecta pessoas. Se houver alguma, o segundo examina o quadro
 completo uma vez, preservando o contexto de treinamento; as caixas são então
 associadas às pessoas. Isso atende à condição de duas instâncias do roteiro
@@ -51,10 +69,13 @@ ambígua, e `uncertain` preserva casos inconclusivos. `ok` não certifica
 conformidade normativa; `unsafe` é uma observação a revisar. Em especial,
 ausência de detecção não é ausência comprovada de EPI.
 
-O dataset usado no treinamento inicial não inclui `no_vest`. Assim, os pesos
-podem reconhecer um colete, mas a falta de sua detecção não gera uma classe
-negativa inexistente: permanece inconclusiva. Detectar ausência explícita de
-colete exige dados e treinamento com essa classe, além da avaliação própria.
+O dataset do treinamento inicial não inclui `no_vest`; seus pesos históricos
+podem reconhecer colete, mas não sua ausência explícita. O modelo atual inclui
+`NO-Safety Vest`, aprendida com caixas negativas anotadas. Em ambos os casos,
+deixar de encontrar colete continua inconclusivo. A interface informa a
+capacidade real do modelo carregado e separa o estado de capacete e colete
+por pessoa; a classe negativa precisa ser associada sem ambiguidade para
+produzir uma observação `unsafe`.
 
 Eventos de vídeo usam o tempo da fonte para confirmar persistência; webcam e
 RTSP usam tempo monotônico de observação. A data/hora da evidência continua

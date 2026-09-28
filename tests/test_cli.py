@@ -42,8 +42,29 @@ def test_evaluation_keeps_error_details_in_report_only(monkeypatch, capsys):
 
 def test_detect_defaults_to_local_trained_weights():
     args = parser().parse_args(["detect", "--source", "sample.png"])
-    assert args.ppe_model == "models/ppe/best.pt"
+    assert args.ppe_model == "models/ppe/absence.pt"
     assert not args.show and not args.save_events
+
+
+@pytest.mark.parametrize("arguments,expected", [([], None), (["--freeze", "0"], 0), (["--freeze", "10"], 10)])
+def test_train_forwards_optional_freeze(monkeypatch, arguments, expected):
+    from safeguard import ml
+    calls = {}
+
+    def train(**kwargs):
+        calls.update(kwargs)
+        return {"kind": "training"}
+
+    monkeypatch.setattr(ml, "train_model", train)
+    assert main(["train", "--data", "dataset.yaml", *arguments]) == 0
+    assert calls["freeze"] == expected
+
+
+@pytest.mark.parametrize("freeze", ["-1", "1.5", "true"])
+def test_train_rejects_invalid_freeze_argument(freeze):
+    with pytest.raises(SystemExit) as error:
+        parser().parse_args(["train", "--data", "dataset.yaml", "--freeze", freeze])
+    assert error.value.code == 2
 
 
 def test_benchmark_dispatches_both_model_paths(monkeypatch):

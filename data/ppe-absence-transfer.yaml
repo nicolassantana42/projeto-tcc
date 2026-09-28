@@ -1,0 +1,18 @@
+{
+  "names": [
+    "Hardhat",
+    "Mask",
+    "NO-Hardhat",
+    "NO-Mask",
+    "NO-Safety Vest",
+    "Person",
+    "Safety Cone",
+    "Safety Vest",
+    "machinery",
+    "vehicle"
+  ],
+  "path": "datasets/ppe-absence-transfer",
+  "test": "test/images",
+  "train": "train/images",
+  "val": "valid/images"
+}

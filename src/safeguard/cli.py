@@ -9,6 +9,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from safeguard import ml
+from safeguard.config import DEFAULT_PERSON_MODEL, DEFAULT_PPE_MODEL
 
 
 def positive(value: str) -> int:
@@ -25,6 +26,13 @@ def probability(value: str) -> float:
     return number
 
 
+def nonnegative(value: str) -> int:
+    number = int(value)
+    if number < 0:
+        raise argparse.ArgumentTypeError("informe um inteiro >= 0")
+    return number
+
+
 def source_value(value: str) -> int | str:
     return int(value) if value.isdecimal() else value
 
@@ -36,8 +44,8 @@ def parser() -> argparse.ArgumentParser:
 
     detect = commands.add_parser("detect", help="pessoa → segundo YOLO de EPI, em imagem, vídeo ou câmera")
     detect.add_argument("--source", type=source_value, required=True)
-    detect.add_argument("--person-model", default="models/yolo11n.pt")
-    detect.add_argument("--ppe-model", default="models/ppe/best.pt")
+    detect.add_argument("--person-model", default=DEFAULT_PERSON_MODEL)
+    detect.add_argument("--ppe-model", default=DEFAULT_PPE_MODEL)
     detect.add_argument("--device", default="auto")
     detect.add_argument("--imgsz", type=positive, default=640)
     detect.add_argument("--confidence", type=probability, default=.4)
@@ -59,8 +67,8 @@ def parser() -> argparse.ArgumentParser:
 
     evaluate = commands.add_parser("evaluate-cascade", help="TP/FP/FN e latência do fluxo completo, sem confundir com mAP")
     evaluate.add_argument("--data", required=True)
-    evaluate.add_argument("--person-model", default="models/yolo11n.pt")
-    evaluate.add_argument("--ppe-model", default="models/ppe/best.pt")
+    evaluate.add_argument("--person-model", default=DEFAULT_PERSON_MODEL)
+    evaluate.add_argument("--ppe-model", default=DEFAULT_PPE_MODEL)
     evaluate.add_argument("--device", default="auto")
     evaluate.add_argument("--imgsz", type=positive, default=640)
     evaluate.add_argument("--split", choices=("val", "test"), default="test")
@@ -71,7 +79,7 @@ def parser() -> argparse.ArgumentParser:
     evaluate.add_argument("--output", default="runs/cascade-evaluation.json")
 
     def common(command: argparse.ArgumentParser) -> None:
-        command.add_argument("--model", default="models/yolo11n.pt", help="pesos .pt ou artefato exportado local")
+        command.add_argument("--model", default=DEFAULT_PERSON_MODEL, help="pesos .pt ou artefato exportado local")
         command.add_argument("--device", default="auto", help="auto, cpu, cuda:0 ou mps")
         command.add_argument("--imgsz", type=positive, default=640)
 
@@ -93,6 +101,8 @@ def parser() -> argparse.ArgumentParser:
     train.add_argument("--workers", type=int, default=0)
     train.add_argument("--seed", type=int, default=42)
     train.add_argument("--amp", action="store_true", help="ativar mixed precision CUDA; o teste AMP Ultralytics pode baixar pesos auxiliares")
+    train.add_argument("--freeze", type=nonnegative, default=None,
+                       help="congelar as primeiras N camadas no fine-tuning; omitido mantém o padrão do modelo")
     train.add_argument("--project", default="runs/train")
     train.add_argument("--name", default="ppe")
 

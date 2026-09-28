@@ -141,6 +141,8 @@ def render_alert_settings(running: bool):
     settings = st.session_state.alert_settings
     telegram, email = st.session_state.telegram_config, st.session_state.email_config
     st.subheader("Câmera, evidências e integrações")
+    if notice := st.session_state.pop("alert_settings_notice", None):
+        st.success(notice)
     st.caption("Preencha, salve e inicie o monitoramento. Tokens e senhas ficam somente nesta sessão, "
                "ou podem ser carregados do arquivo local .streamlit/secrets.toml.")
     if running:
@@ -166,14 +168,16 @@ def render_alert_settings(running: bool):
                                     value=int(settings["max_events"]), step=10, disabled=running)
         st.caption("A imagem é salva após confirmação por continuidade espacial. O intervalo limita novos registros por câmera nesta sessão; "
                    "os mais antigos são removidos quando o limite de armazenamento é atingido, preservando envios pendentes.")
-        st.caption("Os segundos de confirmação e o horário do registro são da análise. Arquivos de vídeo não são reproduzidos "
-                   "na velocidade original; esse tempo não mede a duração da presença na filmagem.")
+        st.caption("Em vídeo, a confirmação usa o tempo da filmagem; em câmera/RTSP, usa o tempo entre observações. "
+                   "Imagens estáticas registram uma observação única. O horário salvo é o momento da análise em UTC.")
         st.markdown("#### Telegram")
         telegram_enabled = st.checkbox("Ativar Telegram para novas ocorrências", value=telegram.enabled, disabled=running)
         token = st.text_input("Token do bot", value=telegram.token, type="password", disabled=running)
         chat_id = st.text_input("Chat ID de destino", value=telegram.chat_id, disabled=running)
         st.caption("Crie o bot no @BotFather, abra a conversa com ele e envie /start. Em grupo, adicione o bot. "
                    "O destinatário recebe foto + câmera + local + horário + motivo.")
+        st.caption("Para consultar o Chat ID sem enviar mensagens, siga docs/ALERTS.md → Descobrir o Chat ID localmente. "
+                   "Preserve o sinal negativo de IDs de grupos.")
         with st.expander("E-mail / Outlook (opcional)"):
             email_enabled = st.checkbox("Ativar e-mail para novas ocorrências", value=email.enabled, disabled=running)
             host = st.text_input("Servidor SMTP", value=email.host, disabled=running)
@@ -209,14 +213,20 @@ def render_alert_settings(running: bool):
             st.session_state.alert_settings = updated
             st.session_state.telegram_config = next_telegram
             st.session_state.email_config = next_email
-            st.success("Configurações salvas. Canais ativados valem para esta sessão; inicie a captura para usá-los.")
+            st.session_state.alert_settings_notice = "Configurações salvas. Canais ativados valem para esta sessão; inicie a captura para usá-los."
+            # Refresh widget defaults and monitor summaries after committing the form.
+            # Without this rerun, a subsequent edit can be reset by a changed default.
+            st.rerun()
         except (ValueError, OSError) as error:
             st.error(str(error))
     enabled = [name for name, config in (("Telegram", st.session_state.telegram_config), ("E-mail", st.session_state.email_config)) if config.enabled]
     st.caption("Canais ativos nesta sessão: " + (", ".join(enabled) if enabled else "nenhum — imagens ficam somente no computador"))
+    if enabled and not st.session_state.alert_settings["save_enabled"]:
+        st.warning("Canal configurado, mas o envio automático está desligado porque 'Salvar ocorrências automaticamente' está desmarcado.")
     if st.button("Enviar teste aos canais ativos", disabled=running or not enabled):
         _send_test()
-    st.caption("O teste envia uma imagem de teste desenhada, com o nome/local configurados. Consulte o resultado na aba Ocorrências.")
+    st.caption("O botão de teste faz um envio real de uma imagem desenhada, com o nome/local configurados. "
+               "Consulte o resultado na aba Ocorrências. Salvar configurações não envia mensagens.")
 
 
 def _send_test():

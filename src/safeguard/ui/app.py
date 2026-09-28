@@ -15,7 +15,8 @@ import numpy as np
 import streamlit as st
 
 from safeguard.capture import CaptureError, VideoSource, open_source, ImageSource
-from safeguard.config import InferenceConfig
+from safeguard.config import DEFAULT_PERSON_MODEL, DEFAULT_PPE_MODEL, InferenceConfig
+from safeguard.detection import canonical_label
 from safeguard.inference import YOLODetector
 from safeguard.pipeline import Pipeline
 from safeguard.rendering import render_frame
@@ -226,7 +227,7 @@ def _stop(message="Monitoramento encerrado. Captura liberada."):
 
 
 def _start(source_type, upload, model_path, model_mode, device, camera_index, stream_url, video_path="",
-           person_model_path="models/yolo11n.pt"):
+           person_model_path=DEFAULT_PERSON_MODEL):
     temporary_path = None
     capture = None
     dispatcher = None
@@ -297,6 +298,9 @@ def _start(source_type, upload, model_path, model_mode, device, camera_index, st
             "camera_id": camera_context().camera_id,
             "camera_name": camera_context().name,
             "location": camera_context().location,
+            # Read the loaded PPE model, not the cascade's fixed output vocabulary.
+            "ppe_model_classes": ([] if runtime.illustrative or model_mode != "EPI treinado" else
+                                  list(pipeline.ppe_detector.names.values())),
         }
         st.session_state.export = None
         st.session_state.notice = ""
@@ -318,6 +322,43 @@ def _start(source_type, upload, model_path, model_mode, device, camera_index, st
             st.session_state.notice = "Falha na captura. Verifique a fonte, suas permissões e a conexão."
         else:
             st.session_state.notice = f"Não foi possível iniciar: {error}"
+
+
+def _render_ppe_capabilities():
+    metadata = st.session_state.get("active_metadata", {})
+    if metadata.get("mode") != "EPI treinado":
+        return
+    classes = {canonical_label(name) for name in metadata.get("ppe_model_classes", [])}
+    supported = [name for label, name in (("no_helmet", "sem capacete"), ("no_vest", "sem colete")) if label in classes]
+    missing = [name for label, name in (("no_helmet", "sem capacete"), ("no_vest", "sem colete")) if label not in classes]
+    st.caption("Classes de ausência disponíveis no modelo carregado: " + (", ".join(supported) or "nenhuma") + ".")
+    if missing:
+        st.warning("Este modelo não tem classe explícita de " + " / ".join(missing)
+                   + ". EPI não encontrado permanece inconclusivo e não gera alerta de ausência desse item.")
+    st.caption("A existência da classe não garante acerto. Confira as métricas dos pesos e revise as evidências.")
+
+
+def _render_ppe_assessments(result):
+    if not result.assessments:
+        return
+    def equipment_status(item, equipment):
+        if equipment in item.uncertain:
+            return "Inconclusivo"
+        if equipment in item.absent:
+            return "Ausência explícita"
+        if equipment in item.present:
+            return "Detectado"
+        return "Inconclusivo"
+
+    status_names = {"ok": "EPIs detectados", "unsafe": "Possível ausência — revisar", "uncertain": "Inconclusivo"}
+    st.dataframe([{
+        "Pessoa no frame": item.index,
+        "Capacete": equipment_status(item, "helmet"),
+        "Colete": equipment_status(item, "vest"),
+        "Resultado": status_names[item.status],
+        "Evidências": "; ".join(item.reasons),
+    } for item in result.assessments], hide_index=True, width="stretch")
+    st.caption("Inconclusivo não significa ausência de EPI. O número da pessoa vale apenas para este frame.")
 
 
 def _live_panel(compact=False):
@@ -358,6 +399,8 @@ def _live_panel(compact=False):
     counts = result.counts if result is not None else {}
     fps = st.session_state.get("observed_fps")
     pipeline_fps = 1000 / result.pipeline_ms if has_metrics and result.pipeline_ms > 0 else None
+    if result is not None and not illustrative:
+        _render_ppe_capabilities()
     if compact:
         metrics = st.columns(2)
         metrics[0].metric("FPS observado", f"{fps:.1f}" if has_metrics and fps is not None else "—")
@@ -368,10 +411,7 @@ def _live_panel(compact=False):
             st.caption(f"Frame {result.frame_index} · {sum(result.counts.values())} caixas · "
                        f"Dispositivo: {st.session_state.active_device}")
             if result.assessments:
-                status_names = {"ok": "EPI detectado", "unsafe": "Não seguro — revisar", "uncertain": "Inconclusivo"}
-                st.dataframe([{"Pessoa no frame": item.index, "Resultado": status_names[item.status],
-                               "Evidências": "; ".join(item.reasons)} for item in result.assessments],
-                              hide_index=True, width="stretch")
+                _render_ppe_assessments(result)
             elif not illustrative:
                 st.caption("Nenhuma pessoa avaliada para EPI neste frame.")
         else:
@@ -388,6 +428,7 @@ def _live_panel(compact=False):
         if st.session_state.get("last_event"):
             event = st.session_state.last_event
             st.success(f"Última imagem salva: {event['camera_name']} · {event['location']}. Consulte Ocorrências.")
+            st.caption(f"Arquivo: {event['snapshot_path']}")
         return
     metrics = st.columns(4)
     metrics[0].metric("FPS observado", f"{fps:.1f}" if has_metrics and fps is not None else "—")
@@ -429,6 +470,8 @@ def _live_panel(compact=False):
                     "não há métricas de desempenho nem avaliação real de EPI.")
         else:
             st.caption("Caixas representam resultados do modelo selecionado. Alertas exigem revisão humana.")
+            if result is not None:
+                _render_ppe_assessments(result)
 
     with right:
         with st.container(border=True):
@@ -492,9 +535,9 @@ def main():
         elif source_type == "RTSP / IP":
             stream_url = st.text_input("URL do stream", type="password", placeholder="rtsp://…", disabled=running)
         model_mode = st.radio("Finalidade do modelo", ["EPI treinado", "Demo COCO"], disabled=running or source_type == PREVIEW)
-        default_path = "models/yolo11n.pt" if model_mode == "Demo COCO" else "models/ppe/best.pt"
+        default_path = DEFAULT_PERSON_MODEL if model_mode == "Demo COCO" else DEFAULT_PPE_MODEL
         model_path = st.text_input("Caminho do modelo", value=default_path, key=f"model_{model_mode}", disabled=running or source_type == PREVIEW)
-        person_model_path = "models/yolo11n.pt"
+        person_model_path = DEFAULT_PERSON_MODEL
         if model_mode == "EPI treinado":
             person_model_path = st.text_input("Modelo de pessoas — primeira etapa", value=person_model_path, disabled=running)
         device = st.selectbox("Dispositivo", ["auto", "cpu", "cuda:0", "mps"], disabled=running or source_type == PREVIEW)
@@ -525,12 +568,19 @@ def main():
 
     st.title("Detecção de pessoas e EPIs")
     st.caption("Capacete e colete por pessoa. EPI detectado, não seguro com evidência explícita, ou inconclusivo.")
+    st.caption("1. Configure câmera, local e Telegram em Alertas e integrações. 2. Escolha a fonte e inicie. "
+               "3. Consulte fotos e envios em Ocorrências.")
     if st.session_state.notice:
         st.info(st.session_state.notice)
 
     monitor_tab, occurrences_tab, integrations_tab = st.tabs(["Monitoramento", "Ocorrências", "Alertas e integrações"])
     with monitor_tab:
         settings = st.session_state.alert_settings
+        if st.session_state.telegram_config.enabled:
+            telegram_status = "ativo para novas ocorrências" if settings["save_enabled"] else "configurado; envio automático desligado"
+        else:
+            telegram_status = "desativado — configure na aba Alertas e integrações"
+        st.caption(f"Câmera: {settings['camera_name']} · Local: {settings['location'] or 'não informado'} · Telegram: {telegram_status}.")
         policy_text = "pessoas detectadas" if settings["trigger"] == "person" else "possível ausência de EPI"
         if settings["save_enabled"]:
             st.caption(f"Registro automático de {policy_text}: confirmação {settings['confirmation_seconds']:g}s do vídeo/câmera · "

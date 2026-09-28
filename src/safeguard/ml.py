@@ -279,7 +279,10 @@ def train_model(
     model_path: str, data: str, *, device: str = "auto", epochs: int = 50,
     imgsz: int = 640, batch: int = 8, workers: int = 0, seed: int = 42,
     project: str = "runs/train", name: str = "ppe", amp: bool = False,
+    freeze: int | None = None,
 ) -> dict[str, Any]:
+    if freeze is not None and (type(freeze) is not int or freeze < 0):
+        raise WorkflowError("freeze deve ser um inteiro >= 0 ou None.")
     if epochs < 1 or batch < 1 or workers < 0:
         raise WorkflowError("epochs e batch devem ser positivos; workers deve ser >= 0.")
     if Path(model_path).suffix.lower() != ".pt":
@@ -290,10 +293,11 @@ def train_model(
         provenance = _dataset_provenance(data, normalized, audit, directory)
         provenance["initial_weights"] = _fingerprint(model_path)
         model = load_yolo(model_path)
+        optional = {"freeze": freeze} if freeze is not None else {}
         metrics = model.train(
             data=normalized, device=selected, epochs=epochs, imgsz=imgsz, batch=batch,
             workers=workers, seed=seed, deterministic=True, project=str(directory.parent), name=directory.name,
-            plots=True, exist_ok=True, amp=amp,
+            plots=True, exist_ok=True, amp=amp, **optional,
         )
     actual_directory = Path(model.trainer.save_dir).resolve()
     if actual_directory != directory:
@@ -301,7 +305,8 @@ def train_model(
     report = {
         "kind": "training", "environment": environment(selected),
         "config": {"model": model_path, "data": str(Path(data).resolve()), "epochs": epochs,
-                   "imgsz": imgsz, "batch": batch, "workers": workers, "seed": seed, "amp": amp},
+                   "imgsz": imgsz, "batch": batch, "workers": workers, "seed": seed, "amp": amp,
+                   "freeze": freeze},
         "metrics": getattr(metrics, "results_dict", {}),
         "per_class": _per_class_metrics(metrics, audit["class_names"], audit, "val"),
         "provenance": provenance,

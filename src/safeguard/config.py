@@ -4,6 +4,10 @@ from dataclasses import dataclass
 import math
 
 
+DEFAULT_PERSON_MODEL = "models/yolo11n.pt"
+DEFAULT_PPE_MODEL = "models/ppe/absence.pt"
+
+
 def validate_threshold(value: float, name: str) -> float:
     """Normalize a finite probability; reject booleans and silent coercion errors."""
     if isinstance(value, bool):
@@ -19,7 +23,7 @@ def validate_threshold(value: float, name: str) -> float:
 
 @dataclass(frozen=True)
 class InferenceConfig:
-    model_path: str = "models/yolo11n.pt"
+    model_path: str = DEFAULT_PERSON_MODEL
     device: str = "auto"
     confidence: float = 0.4
     iou: float = 0.45
