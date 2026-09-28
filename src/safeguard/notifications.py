@@ -22,6 +22,7 @@ from email.message import EmailMessage
 from email.utils import formatdate, make_msgid, parseaddr
 from pathlib import Path
 from typing import Any, Mapping, Protocol
+from urllib.parse import urlparse
 
 import requests
 from PIL import Image, UnidentifiedImageError
@@ -30,12 +31,12 @@ from PIL import Image, UnidentifiedImageError
 _ERRORS = {
     "disabled": "Canal desativado; nenhum envio realizado.",
     "snapshot": "Snapshot local ausente, inválido ou grande demais para envio.",
-    "telegram_timeout": "Tempo limite do Telegram; resultado incerto. Verifique o chat antes de reenviar.",
-    "telegram_network": "Falha de conexão com o Telegram; verifique a rede e o chat antes de reenviar.",
-    "telegram_auth": "Telegram recusou a autenticação ou o acesso ao chat. Revise token e Chat ID.",
-    "telegram_rate": "Telegram limitou os envios. Aguarde e revise o intervalo entre alertas.",
-    "telegram_rejected": "Telegram recusou a solicitação. Revise Chat ID e permissões do bot.",
-    "telegram_response": "Telegram retornou resposta sem confirmação válida de aceitação.",
+    "webhook_timeout": "Tempo limite do webhook n8n; resultado incerto. Verifique o Telegram antes de reenviar.",
+    "webhook_network": "Falha de conexão com o webhook n8n; verifique a rede e o fluxo antes de reenviar.",
+    "webhook_auth": "O webhook n8n recusou a autenticação. Revise a URL e credenciais do fluxo.",
+    "webhook_rate": "O webhook n8n limitou os envios. Aguarde e revise o intervalo entre alertas.",
+    "webhook_rejected": "O webhook n8n recusou a solicitação. Revise a URL e o fluxo de Telegram.",
+    "webhook_response": "O webhook n8n retornou resposta sem confirmação válida de aceitação.",
     "email_auth": "SMTP recusou a autenticação. Revise credenciais, token e permissão SMTP AUTH.",
     "email_tls": "Não foi possível estabelecer TLS com o servidor SMTP.",
     "email_recipient": "O servidor SMTP recusou o destinatário.",
@@ -73,19 +74,34 @@ def _mailbox(value: str) -> bool:
     )
 
 
+def _webhook_url(value: str) -> bool:
+    if not isinstance(value, str) or _has_control(value):
+        return False
+    parsed = urlparse(value.strip())
+    if parsed.username or parsed.password or not parsed.netloc:
+        return False
+    if parsed.scheme == "https":
+        return True
+    if parsed.scheme == "http" and parsed.hostname in {"localhost", "127.0.0.1", "::1"}:
+        return True
+    return False
+
+
 @dataclass(frozen=True)
 class TelegramConfig:
+    """Telegram alerts are delivered via an n8n webhook; no bot token in this app."""
+
     enabled: bool = False
-    token: str = field(default="", repr=False)
+    webhook_url: str = field(default="", repr=False)
     chat_id: str = field(default="", repr=False)
 
     def validate(self) -> None:
         if not self.enabled:
             return
-        if not re.fullmatch(r"[0-9]+:[A-Za-z0-9_-]+", self.token):
-            raise ValueError("Informe um token válido do bot Telegram.")
-        if not re.fullmatch(r"-?[1-9][0-9]*|@[A-Za-z][A-Za-z0-9_]{4,31}", self.chat_id):
-            raise ValueError("Informe o Chat ID numérico ou o nome público do canal (@nome).")
+        if not _webhook_url(self.webhook_url):
+            raise ValueError("Informe a URL HTTPS do webhook n8n (HTTP somente em localhost).")
+        if self.chat_id and not re.fullmatch(r"-?[1-9][0-9]*|@[A-Za-z][A-Za-z0-9_]{4,31}", self.chat_id):
+            raise ValueError("Informe o Chat ID numérico, o canal (@nome) ou deixe vazio se o n8n já define o destino.")
 
 
 @dataclass(frozen=True)
@@ -162,7 +178,7 @@ def event_caption(event: Mapping[str, Any]) -> str:
 def _snapshot_jpeg(event: Mapping[str, Any]) -> bytes:
     """Create a small upload copy without editing the retained evidence.
 
-    Telegram permits <=10 MB, width + height <=10000 and aspect ratio <=20.
+    Downstream Telegram limits <=10 MB, width + height <=10000 and aspect ratio <=20.
     A 1920 px thumbnail satisfies dimensions; extreme aspect ratios are padded.
     Metadata/EXIF is not copied into the upload.
     """
@@ -202,6 +218,29 @@ class DeliveryStore(Protocol):
     def set_delivery(self, event_id: str, channel: str, status: str, detail: str = "") -> Any: ...
 
 
+def _webhook_event_fields(event: Mapping[str, Any], chat_id: str) -> dict[str, str]:
+    fields = {
+        "event_id": _plain(event.get("id"), 70),
+        "camera_id": _plain(event.get("camera_id"), 80),
+        "camera_name": _plain(event.get("camera_name")),
+        "location": _plain(event.get("location")),
+        "timestamp_utc": _plain(event.get("timestamp_utc"), 50),
+        "kind": _plain(event.get("kind"), 40),
+        "model_mode": _plain(event.get("model_mode"), 60),
+        "caption": event_caption(event),
+    }
+    if chat_id:
+        fields["chat_id"] = chat_id
+    reasons = event.get("reasons") or []
+    if isinstance(reasons, str):
+        reasons = [reasons]
+    fields["reasons"] = _plain("; ".join(str(item) for item in reasons), 300)
+    counts = event.get("counts") or {}
+    if isinstance(counts, Mapping):
+        fields["counts"] = _plain(", ".join(f"{label}: {count}" for label, count in counts.items()), 150)
+    return fields
+
+
 class TelegramSender:
     def __init__(self, config: TelegramConfig) -> None:
         config.validate()
@@ -214,37 +253,39 @@ class TelegramSender:
         photo = _snapshot_jpeg(event)
         try:
             response = self._session.post(
-                f"https://api.telegram.org/bot{self.config.token}/sendPhoto",
-                data={"chat_id": self.config.chat_id, "caption": event_caption(event)},
+                self.config.webhook_url.strip(),
+                data=_webhook_event_fields(event, self.config.chat_id),
                 files={"photo": ("safeguard-event.jpg", photo, "image/jpeg")},
                 timeout=_HTTP_TIMEOUT,
                 allow_redirects=False,
             )
             try:
                 if response.status_code in {401, 403}:
-                    raise NotificationError("telegram_auth")
+                    raise NotificationError("webhook_auth")
                 if response.status_code == 429:
-                    raise NotificationError("telegram_rate")
+                    raise NotificationError("webhook_rate")
                 if not 200 <= response.status_code < 300:
-                    raise NotificationError("telegram_rejected")
-                payload = response.json()
+                    raise NotificationError("webhook_rejected")
+                try:
+                    payload = response.json()
+                except ValueError:
+                    payload = None
             finally:
                 response.close()
-            if not isinstance(payload, dict) or payload.get("ok") is not True:
-                raise NotificationError("telegram_response")
-            result = payload.get("result")
-            message_id = result.get("message_id") if isinstance(result, dict) else None
-            if type(message_id) is not int or message_id <= 0:
-                raise NotificationError("telegram_response")
-            return f"Aceito pelo Telegram (mensagem {message_id}); leitura não confirmada."
+            if payload is not None:
+                if isinstance(payload, dict) and payload.get("ok") is False:
+                    raise NotificationError("webhook_response")
+                if isinstance(payload, dict) and payload.get("accepted") is False:
+                    raise NotificationError("webhook_response")
+            return "Aceito pelo webhook n8n; entrega ao Telegram não confirmada neste aplicativo."
         except NotificationError:
             raise
         except requests.Timeout:
-            raise NotificationError("telegram_timeout") from None
+            raise NotificationError("webhook_timeout") from None
         except requests.RequestException:
-            raise NotificationError("telegram_network") from None
+            raise NotificationError("webhook_network") from None
         except (ValueError, TypeError):
-            raise NotificationError("telegram_response") from None
+            raise NotificationError("webhook_response") from None
 
     def close(self) -> None:
         self._session.close()

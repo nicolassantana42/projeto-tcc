@@ -151,8 +151,8 @@ def configure_camera(app, *, telegram=False):
         "Identificador da câmera": "entrada-07",
         "Nome da câmera": "Câmera da entrada",
         "Local / setor": "Unidade 2 • Galpão A",
-        "Token do bot": "123456:FAKE_TEST_TOKEN_NOT_REAL",
-        "Chat ID de destino": "-123456789",
+        "URL do webhook n8n": "https://n8n.example.com/webhook/FAKE_TEST_WEBHOOK_NOT_REAL",
+        "Chat ID de destino (opcional)": "-123456789",
         "Access token OAuth2 SMTP": "FAKE_OAUTH_TEST_SECRET",
         "Senha de aplicativo SMTP": "FAKE_SMTP_TEST_SECRET",
     }.items():
@@ -190,14 +190,14 @@ def test_settings_survive_restart_without_secrets_or_channel_activation(dashboar
     assert settings["location"] == "Unidade 2 • Galpão A"
     assert settings["telegram_chat_id"] == "-123456789"
     assert set(settings) == set(alert_panels.DEFAULTS)
-    for secret in ("FAKE_TEST_TOKEN", "FAKE_OAUTH_TEST_SECRET", "FAKE_SMTP_TEST_SECRET"):
+    for secret in ("FAKE_TEST_WEBHOOK", "FAKE_OAUTH_TEST_SECRET", "FAKE_SMTP_TEST_SECRET"):
         assert secret not in raw
     assert not list((settings_file.parent / "occurrences").glob("*/event.json"))
 
     restarted = AppTest.from_file(str(APP_PATH), default_timeout=15).run()
     assert_no_exception(restarted)
     assert restarted.session_state["alert_settings"]["location"] == settings["location"]
-    assert restarted.session_state["telegram_config"].token == ""
+    assert restarted.session_state["telegram_config"].webhook_url == ""
     assert restarted.session_state["email_config"].password == ""
     assert restarted.session_state["email_config"].access_token == ""
     assert not restarted.session_state["telegram_config"].enabled

@@ -74,7 +74,7 @@ def save_settings(settings: dict) -> None:
 
 
 def _secret(section: str, key: str, fallback=""):
-    env_key = "TELEGRAM_BOT_TOKEN" if (section, key) == ("telegram", "token") else f"{section}_{key}".upper()
+    env_key = "N8N_TELEGRAM_WEBHOOK_URL" if (section, key) == ("telegram", "webhook_url") else f"{section}_{key}".upper()
     if env_key in os.environ:
         return os.environ[env_key]
     try:
@@ -90,7 +90,7 @@ def init_alert_settings():
     settings = st.session_state.alert_settings
     if "telegram_config" not in st.session_state:
         st.session_state.telegram_config = TelegramConfig(
-            token=str(_secret("telegram", "token")),
+            webhook_url=str(_secret("telegram", "webhook_url")),
             chat_id=str(_secret("telegram", "chat_id", settings["telegram_chat_id"])),
         )
     if "email_config" not in st.session_state:
@@ -168,12 +168,13 @@ def render_alert_settings(running: bool):
                    "os mais antigos são removidos quando o limite de armazenamento é atingido, preservando envios pendentes.")
         st.caption("Os segundos de confirmação e o horário do registro são da análise. Arquivos de vídeo não são reproduzidos "
                    "na velocidade original; esse tempo não mede a duração da presença na filmagem.")
-        st.markdown("#### Telegram")
+        st.markdown("#### Telegram (via n8n)")
         telegram_enabled = st.checkbox("Ativar Telegram para novas ocorrências", value=telegram.enabled, disabled=running)
-        token = st.text_input("Token do bot", value=telegram.token, type="password", disabled=running)
-        chat_id = st.text_input("Chat ID de destino", value=telegram.chat_id, disabled=running)
-        st.caption("Crie o bot no @BotFather, abra a conversa com ele e envie /start. Em grupo, adicione o bot. "
-                   "O destinatário recebe foto + câmera + local + horário + motivo.")
+        webhook_url = st.text_input("URL do webhook n8n", value=telegram.webhook_url, type="password", disabled=running)
+        chat_id = st.text_input("Chat ID de destino (opcional)", value=telegram.chat_id, disabled=running,
+                                help="Repasse ao fluxo n8n quando o destino não estiver fixo no workflow.")
+        st.caption("Configure no n8n um webhook que receba foto + metadados e envie ao Telegram (sendPhoto). "
+                   "O token do bot fica somente no n8n, não neste aplicativo.")
         with st.expander("E-mail / Outlook (opcional)"):
             email_enabled = st.checkbox("Ativar e-mail para novas ocorrências", value=email.enabled, disabled=running)
             host = st.text_input("Servidor SMTP", value=email.host, disabled=running)
@@ -195,7 +196,7 @@ def render_alert_settings(running: bool):
                 raise ValueError("Preencha identificador, nome da câmera e local / setor.")
             CameraContext(camera_id.strip(), camera_name.strip(), location.strip())
             EventPolicy(trigger, confirmation, cooldown, int(max_events))
-            next_telegram = TelegramConfig(telegram_enabled, token.strip(), chat_id.strip())
+            next_telegram = TelegramConfig(telegram_enabled, webhook_url.strip(), chat_id.strip())
             next_email = EmailConfig(enabled=email_enabled, host=host.strip(), port=int(port), username=username.strip(),
                                      password=password, sender=sender.strip(), recipient=recipient.strip(),
                                      auth_mode=auth_mode, access_token=access_token.strip(), security=security)

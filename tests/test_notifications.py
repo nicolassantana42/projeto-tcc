@@ -23,7 +23,8 @@ from safeguard.notifications import (
 )
 
 
-TOKEN = "123456:secret_bot_token"
+WEBHOOK = "https://n8n.example.com/webhook/secret-path-segment"
+WEBHOOK_SECRET = "secret-path-segment"
 PASSWORD = "secret_smtp_password"
 ACCESS_TOKEN = "secret_access_token"
 
@@ -93,7 +94,7 @@ class FakeSession:
 def telegram_sender(monkeypatch, response=None, failure=None):
     session = FakeSession(response, failure)
     monkeypatch.setattr(notifications.requests, "Session", lambda: session)
-    return TelegramSender(TelegramConfig(True, TOKEN, "-100123456789")), session
+    return TelegramSender(TelegramConfig(True, WEBHOOK, "-100123456789")), session
 
 
 def email_config(**changes):
@@ -157,20 +158,24 @@ def smtp_factory(monkeypatch, client, secure=False):
 def test_disabled_configs_require_nothing_and_hide_credentials():
     TelegramConfig().validate()
     EmailConfig().validate()
-    assert TOKEN not in repr(TelegramConfig(True, TOKEN, "123456"))
+    assert WEBHOOK not in repr(TelegramConfig(True, WEBHOOK, "123456"))
     assert PASSWORD not in repr(email_config())
     assert "sender@example.com" not in repr(email_config())
     assert ACCESS_TOKEN not in repr(email_config(access_token=ACCESS_TOKEN))
 
 
-@pytest.mark.parametrize("token,chat_id", [
-    ("https://fake/token", "123"), (TOKEN + "\n", "123"),
-    (TOKEN, "https://chat"), (TOKEN, "123\r\nfoo"), (TOKEN, "0"),
+@pytest.mark.parametrize("webhook_url,chat_id", [
+    ("http://evil.example.com/hook", "123"),
+    (WEBHOOK + "\n", "123"),
+    ("ftp://n8n.example/hook", "123"),
+    (WEBHOOK, "https://chat"),
+    (WEBHOOK, "123\r\nfoo"),
+    (WEBHOOK, "0"),
 ])
-def test_telegram_config_rejects_malformed_credentials_without_echo(token, chat_id):
+def test_telegram_config_rejects_malformed_credentials_without_echo(webhook_url, chat_id):
     with pytest.raises(ValueError) as caught:
-        TelegramConfig(True, token, chat_id).validate()
-    assert TOKEN not in str(caught.value)
+        TelegramConfig(True, webhook_url, chat_id).validate()
+    assert WEBHOOK_SECRET not in str(caught.value)
 
 
 @pytest.mark.parametrize("changes", [
@@ -201,17 +206,18 @@ def test_telegram_sends_small_photo_with_event_location_and_safe_filename(monkey
     sender, session = telegram_sender(monkeypatch)
     original = open(event["snapshot_path"], "rb").read()
     result = sender.send(event)
-    assert "Aceito" in result and "42" in result
+    assert "Aceito" in result and "n8n" in result
     assert len(session.calls) == 1
     url, args = session.calls[0]
-    assert url == f"https://api.telegram.org/bot{TOKEN}/sendPhoto"
+    assert url == WEBHOOK
     assert args["timeout"] == (5.0, 15.0)
     assert args["allow_redirects"] is False
     assert args["data"]["chat_id"] == "-100123456789"
+    assert args["data"]["event_id"] == event["id"]
     assert "Galpão A / entrada norte" in args["data"]["caption"]
     assert "Portaria" in args["data"]["caption"]
-    assert "Sem capacete" in args["data"]["caption"]
-    assert "2026-09-18T12:00:00+00:00" in args["data"]["caption"]
+    assert "Sem capacete" in args["data"]["reasons"]
+    assert "2026-09-18T12:00:00+00:00" in args["data"]["timestamp_utc"]
     assert event["snapshot_path"] not in args["data"]["caption"]
     filename, photo, mime = args["files"]["photo"]
     assert filename == "safeguard-event.jpg" and mime == "image/jpeg"
@@ -257,36 +263,34 @@ def test_invalid_local_snapshot_is_not_sent(monkeypatch, event, variant):
 
 
 @pytest.mark.parametrize("response,code", [
-    (FakeResponse(401), "telegram_auth"),
-    (FakeResponse(403), "telegram_auth"),
-    (FakeResponse(429), "telegram_rate"),
-    (FakeResponse(302), "telegram_rejected"),
-    (FakeResponse(400), "telegram_rejected"),
-    (FakeResponse(payload={"ok": False, "description": TOKEN}), "telegram_response"),
-    (FakeResponse(payload={"ok": True, "result": {"message_id": TOKEN}}), "telegram_response"),
-    (FakeResponse(payload={"ok": True, "result": {"message_id": True}}), "telegram_response"),
-    (FakeResponse(payload=ValueError(TOKEN)), "telegram_response"),
+    (FakeResponse(401), "webhook_auth"),
+    (FakeResponse(403), "webhook_auth"),
+    (FakeResponse(429), "webhook_rate"),
+    (FakeResponse(302), "webhook_rejected"),
+    (FakeResponse(400), "webhook_rejected"),
+    (FakeResponse(payload={"ok": False, "description": WEBHOOK_SECRET}), "webhook_response"),
+    (FakeResponse(payload={"accepted": False, "detail": WEBHOOK_SECRET}), "webhook_response"),
 ])
 def test_telegram_rejects_provider_errors_without_leaking_or_retrying(monkeypatch, event, response, code):
     sender, session = telegram_sender(monkeypatch, response=response)
     with pytest.raises(NotificationError) as caught:
         sender.send(event)
     assert caught.value.code == code
-    assert TOKEN not in str(caught.value)
+    assert WEBHOOK_SECRET not in str(caught.value)
     assert "https://" not in str(caught.value)
     assert len(session.calls) == 1
 
 
 @pytest.mark.parametrize("failure,code", [
-    (requests.Timeout(f"https://api.telegram.org/bot{TOKEN}"), "telegram_timeout"),
-    (requests.ConnectionError(TOKEN), "telegram_network"),
+    (requests.Timeout(WEBHOOK), "webhook_timeout"),
+    (requests.ConnectionError(WEBHOOK_SECRET), "webhook_network"),
 ])
 def test_telegram_network_errors_are_safe_and_not_retried(monkeypatch, event, failure, code):
     sender, session = telegram_sender(monkeypatch, failure=failure)
     with pytest.raises(NotificationError) as caught:
         sender.send(event)
     assert caught.value.code == code
-    assert TOKEN not in str(caught.value)
+    assert WEBHOOK_SECRET not in str(caught.value)
     assert len(session.calls) == 1
 
 
@@ -378,7 +382,7 @@ def test_dispatcher_independent_channels_safe_errors_and_no_retry(event):
 
     def fail(item):
         attempts.append("telegram")
-        raise RuntimeError(TOKEN)
+        raise RuntimeError(WEBHOOK_SECRET)
 
     def accept(item):
         attempts.append("email")
@@ -390,7 +394,7 @@ def test_dispatcher_independent_channels_safe_errors_and_no_retry(event):
     assert dispatcher.close(wait=True)
     assert attempts == ["telegram", "email"]
     assert {row[1]: row[2] for row in store.history} == {"telegram": "failed", "email": "accepted"}
-    assert TOKEN not in repr(store.history) and PASSWORD not in repr(store.history)
+    assert WEBHOOK_SECRET not in repr(store.history) and PASSWORD not in repr(store.history)
     assert dispatcher.snapshot()["pending"] == 0
     assert dispatcher.snapshot()["failed"] == 1
     assert dispatcher.snapshot()["accepted"] == 1
@@ -505,5 +509,5 @@ def test_no_channels_means_no_queueing(event):
 
 
 def test_notification_error_only_exposes_allowlisted_detail():
-    assert TOKEN not in str(NotificationError(TOKEN))
-    assert NotificationError(TOKEN).code == "unknown"
+    assert WEBHOOK_SECRET not in str(NotificationError(WEBHOOK_SECRET))
+    assert NotificationError(WEBHOOK_SECRET).code == "unknown"
