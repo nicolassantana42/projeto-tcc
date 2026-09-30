@@ -12,14 +12,16 @@ import requests
 import smtplib
 from streamlit.testing.v1 import AppTest
 
-from safeguard.capture import VideoSource
-from safeguard.inference import YOLODetector
-from safeguard.events import EventService, EventStore
-from safeguard.types import Detection
-from safeguard.ui import alert_panels
+from epi_monitor.capture import VideoSource
+from epi_monitor.inference import YOLODetector
+from epi_monitor.events import EventService, EventStore
+from epi_monitor.types import Detection
+from epi_monitor.ui import alert_panels
+from epi_monitor.ui import profiles
+from epi_monitor.ui.preview import AnalysisPacer
 
 
-APP_PATH = Path(__file__).resolve().parents[1] / "src" / "safeguard" / "ui" / "app.py"
+APP_PATH = Path(__file__).resolve().parents[1] / "src" / "epi_monitor" / "ui" / "app.py"
 
 
 def button(app, label):
@@ -38,11 +40,15 @@ def dashboard(monkeypatch, tmp_path):
 
     monkeypatch.setattr(YOLODetector, "load", forbid_external_resource)
     monkeypatch.setattr(VideoSource, "open", forbid_external_resource)
-    monkeypatch.setenv("SAFEGUARD_REPORTS_DIR", str(tmp_path / "reports"))
+    monkeypatch.setenv("EPI_REPORTS_DIR", str(tmp_path / "reports"))
     monkeypatch.setattr(alert_panels, "_secret", lambda section, key, fallback="": fallback)
     monkeypatch.setattr(requests.Session, "request", forbid_external_resource)
     monkeypatch.setattr(smtplib, "SMTP", forbid_external_resource)
     monkeypatch.setattr(smtplib, "SMTP_SSL", forbid_external_resource)
+    # Other dashboard tests exercise reruns without depending on wall-clock
+    # delays. Pacing and skipped ticks have dedicated tests below.
+    monkeypatch.setattr(AnalysisPacer, "ready", lambda self: True)
+    monkeypatch.setattr(profiles, "recommended_profile", lambda: profiles.PYTORCH)
     app = AppTest.from_file(str(APP_PATH), default_timeout=15).run()
     assert_no_exception(app)
     try:
@@ -398,6 +404,8 @@ def test_image_executes_real_cascade_and_saves_only_explicit_unsafe(dashboard, m
         return Detector(stage)
 
     monkeypatch.setattr(YOLODetector, "load", load)
+    # Static images and their following EOF must not wait for the video pacer.
+    monkeypatch.setattr(AnalysisPacer, "ready", lambda self: False)
     app.selectbox(key="source_type").select("Imagem").run()
     element(app, "radio", "Abrir imagem").set_value("Caminho no computador").run()
     element(app, "text_input", "Caminho da imagem").set_value(str(image_path))
@@ -507,3 +515,102 @@ def test_telegram_configuration_explains_disabled_automatic_saving(dashboard):
     assert any("envio automático está desligado" in item.value for item in dashboard.warning)
     assert any("Telegram: configurado; envio automático desligado" in item.value for item in dashboard.caption)
     assert not list((alert_panels.reports_root() / "occurrences").glob("*/event.json"))
+
+
+def test_skipped_analysis_tick_keeps_source_and_history_without_confirming_event(detected_dashboard, monkeypatch):
+    app, opened, closed, sent = detected_dashboard
+    configure_camera(app, telegram=True)
+    button(app, "▶ Iniciar").click().run()
+    runtime = app.session_state["runtime"]
+    result = app.session_state["latest_result"]
+    frame = app.session_state["latest_frame"]
+    count = len(app.session_state["history"])
+    calls = []
+    monkeypatch.setattr(AnalysisPacer, "ready", lambda self: False)
+    monkeypatch.setattr(VideoSource, "read", lambda source: calls.append("read"))
+    monkeypatch.setattr(EventService, "process", lambda *args, **kwargs: calls.append("event"))
+    app.run()
+    assert_no_exception(app)
+    assert app.session_state["runtime"] is runtime and not runtime.closed
+    assert app.session_state["latest_result"] is result
+    assert app.session_state["latest_frame"] is frame
+    assert len(app.session_state["history"]) == count
+    assert not calls and not closed and not sent
+    assert EventStore(alert_panels.reports_root() / "occurrences").list_events() == []
+
+
+@pytest.mark.parametrize("rate", [3, 10, 25, 30])
+def test_analysis_limit_is_configurable_and_exported_as_target_not_guaranteed_fps(dashboard, rate):
+    app = dashboard
+    app.selectbox(key="source_type").select("Prévia ilustrativa").run()
+    choice = next(option for option in app.selectbox(key="analysis_rate").options if option.startswith(str(rate) + " "))
+    app.selectbox(key="analysis_rate").select(choice)
+    button(app, "▶ Iniciar").click().run()
+    assert_no_exception(app)
+    assert app.session_state["runtime"].pacer.limit == rate
+    assert app.session_state["active_metadata"]["analysis_rate_limit"] == rate
+    assert app.session_state["active_metadata"]["analysis_target_period_seconds"] == pytest.approx(1 / rate)
+    assert any("não uma garantia de FPS" in item.value for item in app.caption)
+
+
+@pytest.mark.parametrize("full_panel", [False, True])
+def test_preview_reserves_same_viewport_before_and_after_start(dashboard, full_panel):
+    app = dashboard
+    element(app, "checkbox", "Exibir painel completo").set_value(full_panel)
+    app.selectbox(key="source_type").select("Prévia ilustrativa").run()
+    empty = next(item.value for item in app.markdown if 'data-epi-preview="true"' in item.value)
+    assert "Aguardando captura" in empty
+    button(app, "▶ Iniciar").click().run()
+    assert_no_exception(app)
+    started = next(item.value for item in app.markdown if 'data-epi-preview="true"' in item.value)
+    assert 'src="data:image/jpeg;base64,' in started
+    assert empty.partition(">")[0] == started.partition(">")[0]
+    preview = cv2.imdecode(np.frombuffer(app.session_state["latest_preview"], dtype=np.uint8), cv2.IMREAD_COLOR)
+    assert preview.shape == (405, 720, 3)
+    assert app.session_state["latest_frame"].shape == (540, 960, 3)
+    assert any("Botas não são avaliadas" in item.value for item in app.caption)
+
+
+def test_openvino_profile_uses_cpu_and_keeps_custom_pytorch_paths(dashboard):
+    app = dashboard
+    element(app, "text_input", "Caminho do modelo").set_value("custom-ppe.pt")
+    element(app, "text_input", "Modelo de pessoas — primeira etapa").set_value("custom-person.pt")
+    app.run()
+    app.selectbox(key="backend").select(profiles.OPENVINO).run()
+    assert_no_exception(app)
+    assert element(app, "text_input", "Caminho do modelo").value == profiles.OPENVINO_PPE
+    assert element(app, "text_input", "Modelo de pessoas — primeira etapa").value == profiles.OPENVINO_PERSON
+    assert not any(item.label == "Dispositivo" for item in app.selectbox)
+    assert any("não usa quantização" in item.value for item in app.caption)
+    app.selectbox(key="backend").select(profiles.PYTORCH).run()
+    assert_no_exception(app)
+    assert element(app, "text_input", "Caminho do modelo").value == "custom-ppe.pt"
+    assert element(app, "text_input", "Modelo de pessoas — primeira etapa").value == "custom-person.pt"
+
+
+def test_openvino_profile_passes_both_model_paths_and_cpu_to_pipeline(dashboard, monkeypatch, tmp_path):
+    image_path = tmp_path / "frame.png"
+    cv2.imencode(".png", np.zeros((300, 500, 3), dtype=np.uint8))[1].tofile(str(image_path))
+    configurations = []
+
+    class Detector:
+        device = "cpu"
+        names = {0: "person"}
+
+        def predict(self, *args, **kwargs):
+            return []
+
+    def load(detector):
+        configurations.append(detector.config)
+        return Detector()
+
+    monkeypatch.setattr(YOLODetector, "load", load)
+    app = dashboard
+    app.selectbox(key="backend").select(profiles.OPENVINO).run()
+    app.selectbox(key="source_type").select("Imagem").run()
+    element(app, "radio", "Abrir imagem").set_value("Caminho no computador").run()
+    element(app, "text_input", "Caminho da imagem").set_value(str(image_path))
+    button(app, "▶ Iniciar").click().run()
+    assert_no_exception(app)
+    assert [item.model_path for item in configurations] == [profiles.OPENVINO_PERSON, profiles.OPENVINO_PPE]
+    assert all(item.device == "cpu" and item.imgsz == 640 for item in configurations)

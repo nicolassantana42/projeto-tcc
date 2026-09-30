@@ -3,12 +3,12 @@ import json
 
 import pytest
 
-from safeguard.cli import main, parser
+from epi_monitor.cli import main, parser
 
 
 @pytest.mark.parametrize("valid,code", [(True, 0), (False, 1)])
 def test_audit_exit_status_and_bounded_output(monkeypatch, capsys, valid, code):
-    from safeguard import dataset_audit
+    from epi_monitor import dataset_audit
     report = {"valid": valid, "summary": {"images": 5000}, "class_names": {0: "person"},
               "errors": [{"message": "bad label"}] * 100, "warnings": [],
               "resolved_splits": {"train": ["SENTINEL_PRIVATE_PATH"] * 5000},
@@ -23,7 +23,7 @@ def test_audit_exit_status_and_bounded_output(monkeypatch, capsys, valid, code):
 
 
 def test_evaluation_keeps_error_details_in_report_only(monkeypatch, capsys):
-    from safeguard import evaluation, factory
+    from epi_monitor import evaluation, factory
     sentinel = object()
     monkeypatch.setattr(factory, "create_cascade", lambda *args: sentinel)
 
@@ -48,7 +48,7 @@ def test_detect_defaults_to_local_trained_weights():
 
 @pytest.mark.parametrize("arguments,expected", [([], None), (["--freeze", "0"], 0), (["--freeze", "10"], 10)])
 def test_train_forwards_optional_freeze(monkeypatch, arguments, expected):
-    from safeguard import ml
+    from epi_monitor import ml
     calls = {}
 
     def train(**kwargs):
@@ -68,7 +68,7 @@ def test_train_rejects_invalid_freeze_argument(freeze):
 
 
 def test_benchmark_dispatches_both_model_paths(monkeypatch):
-    from safeguard import ml
+    from epi_monitor import ml
     calls = {}
 
     def benchmark(**kwargs):
@@ -83,7 +83,7 @@ def test_benchmark_dispatches_both_model_paths(monkeypatch):
 
 @pytest.mark.parametrize("collision", ["output_source", "snapshot_source", "output_weights", "output_snapshot"])
 def test_legacy_infer_protects_inputs_before_loading_model(monkeypatch, tmp_path, collision):
-    from safeguard.inference import YOLODetector
+    from epi_monitor.inference import YOLODetector
     source, weights = tmp_path / "photo.png", tmp_path / "best.pt"
     source.write_bytes(b"original-image")
     weights.write_bytes(b"original-weights")

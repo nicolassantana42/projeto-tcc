@@ -9,10 +9,10 @@ import numpy as np
 import pytest
 import yaml
 
-from safeguard.config import InferenceConfig
-import safeguard.evaluation as evaluation
-from safeguard.evaluation import EvaluationError, evaluate_cascade
-from safeguard.types import Detection, FrameResult
+from epi_monitor.config import InferenceConfig
+import epi_monitor.evaluation as evaluation
+from epi_monitor.evaluation import EvaluationError, evaluate_cascade
+from epi_monitor.types import Detection, FrameResult
 
 
 def detection(label="person", score=.9, bbox=(30, 30, 70, 70)):

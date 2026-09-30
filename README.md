@@ -1,4 +1,4 @@
-# SafeGuard · Detecção de pessoas, capacetes e coletes
+# Detecção de pessoas, capacetes e coletes
 
 Pipeline local para o TCC: **imagem/câmera → YOLO de pessoas → segundo YOLO de EPIs → decisão por pessoa → evidência**. A execução principal é pela CLI; a interface simples serve para visualizar o resultado.
 
@@ -9,6 +9,10 @@ O primeiro estágio usa YOLO11n COCO. O segundo usa **YOLO11n ajustado localment
 Exemplo selecionado para demonstrar os três estados na imagem pública `ppe_0079` do val, não uma amostra para medir qualidade. À esquerda, o colete não foi reconhecido e a avaliação permanece inconclusiva; ao centro, há detecção explícita de ausência; à direita, capacete e colete associados. Fonte RF100 / Anonymous, espelho LibreYOLO, CC BY 4.0; [atribuição e limites](docs/ABSENCE_DATA.md). As porcentagens das caixas são confiança do modelo, não precisão medida.
 
 **Resultado atual no teste de 90 imagens:** colete com recall de 72,1% e precisão de 86,1%; sem colete com recall de 63,9% e precisão de 69,6%. Sem capacete ainda tem recall de apenas 25%. No teste antigo, o recall dessa ausência subiu de 12,5% para 25%, mas os falsos positivos passaram de 1 para 13. A detecção de ausência ainda exige melhoria e revisão humana; não está validada para fiscalização automática.
+
+**Revisão de 29/09/2026:** os dois modelos têm exports OpenVINO FP32 em 640 preparados nesta instalação. A interface recomenda esse perfil automaticamente em CPU quando os artefatos e o runtime estão disponíveis. O benchmark da cascata passou de **3,49 para 7,31 FPS**, sem captura, interface, gravação ou rede; **25–30 FPS reais não foram atingidos**. O modelo ativo **não detecta botas**. [Revisão para apresentação, validação e pendências](docs/PRESENTATION_CHECK.md).
+
+**Interface em 30/09:** removida a coleta completa de memória forçada a cada atualização. Na comparação com o mesmo vídeo, a taxa com interface passou de **5,43 para 7,57 FPS**, com resultados idênticos nos 103 quadros. A coleta automática normal do Python permanece ativa. Essa medição curta não garante FPS ou estabilidade de memória em sessões longas.
 
 ## Executar a detecção
 
@@ -23,7 +27,7 @@ Ative o ambiente no PowerShell com `.\.venv\Scripts\Activate.ps1`, ou no Linux/m
 Nesta instalação, os pesos treinados já estão preparados. Execute sobre **uma imagem sua**:
 
 ```bash
-python -m safeguard detect --source data/minha-imagem.jpg --show --snapshot reports/resultado.jpg
+python -m epi_monitor detect --source data/minha-imagem.jpg --show --snapshot reports/resultado.jpg
 ```
 
 `data/minha-imagem.jpg` é um caminho de exemplo, que deve ser substituído por um arquivo existente. A detecção não baixa pesos implicitamente. A janela OpenCV exibe caixas e estados; **Q** encerra.
@@ -31,12 +35,12 @@ python -m safeguard detect --source data/minha-imagem.jpg --show --snapshot repo
 Em um **clone novo**, pesos e dataset não vêm do Git. Prepare os dados e reproduza o treinamento, ou forneça seus próprios pesos EPI:
 
 ```bash
-python -m safeguard download
+python -m epi_monitor download
 python scripts/prepare_absence_model.py
 python scripts/prepare_absence_data.py
 python scripts/prepare_absence_transfer.py
-python -m safeguard train --model models/ppe/absence-base.pt --data data/ppe-absence-transfer.yaml --epochs 10 --imgsz 416 --batch 8 --device cpu --freeze 10 --name ppe_absence
-python -m safeguard evaluate-cascade --ppe-model runs/train/ppe_absence/weights/best.pt --data data/ppe-absence.yaml --split val --output runs/absence-val.json
+python -m epi_monitor train --model models/ppe/absence-base.pt --data data/ppe-absence-transfer.yaml --epochs 10 --imgsz 416 --batch 8 --device cpu --freeze 10 --name ppe_absence
+python -m epi_monitor evaluate-cascade --ppe-model runs/train/ppe_absence/weights/best.pt --data data/ppe-absence.yaml --split val --output runs/absence-val.json
 python scripts/promote_absence_model.py --run-dir runs/train/ppe_absence
 ```
 
@@ -45,8 +49,8 @@ Os downloads precisam de internet; o treino medido levou cerca de 37 minutos nes
 Para vídeo ou webcam:
 
 ```bash
-python -m safeguard detect --source data/meu-video.mp4 --show --max-frames 1000 --save-events --camera-name "Entrada da obra" --location "Bloco B"
-python -m safeguard detect --source 0 --show --max-frames 1000
+python -m epi_monitor detect --source data/meu-video.mp4 --show --max-frames 1000 --save-events --camera-name "Entrada da obra" --location "Bloco B"
+python -m epi_monitor detect --source 0 --show --max-frames 1000
 ```
 
 RTSP também é aceito em `--source`. Sem `--show`, a inferência funciona sem janela. `--person-model` e `--ppe-model` permitem trocar os pesos dos dois estágios; `--confidence`, `--iou`, `--imgsz` e `--device` controlam a execução. O limite padrão é 300 quadros. Use `--output` para separar os relatórios; o caminho padrão é `runs/detection/frames.jsonl`.
@@ -70,8 +74,8 @@ As evidências ficam em `reports/occurrences/<UUID>/snapshot.jpg` e `event.json`
 ## Avaliar antes de concluir precisão
 
 ```bash
-python -m safeguard audit-data --data data/ppe-absence.yaml --require-test --output runs/dataset-audit.json
-python -m safeguard evaluate-cascade --data data/ppe-absence.yaml --split test --output runs/cascade-evaluation.json
+python -m epi_monitor audit-data --data data/ppe-absence.yaml --require-test --output runs/dataset-audit.json
+python -m epi_monitor evaluate-cascade --data data/ppe-absence.yaml --split test --output runs/cascade-evaluation.json
 ```
 
 O primeiro comando verifica dados e rótulos, incluindo duplicatas entre splits. O segundo mede **TP, FP, FN, precisão, recall e latência do fluxo completo** em limiares fixos. Ele não calcula mAP, não comprova que o dataset seja independente do treinamento do modelo público e não avalia a decisão de conformidade por pessoa. Anotações de caixas e anotações de estado são problemas diferentes.
@@ -86,9 +90,11 @@ python run.py
 
 Abra **http://localhost:8501**, escolha imagem, vídeo, webcam ou RTSP e clique **Iniciar**. O quadro mostra as caixas, e a tabela abaixo separa **Capacete / Colete** por pessoa: Detectado, Ausência explícita ou Inconclusivo. Histórico e integrações ficam nas abas; **Exibir painel completo** acrescenta estatísticas. Em **Alertas e integrações**, cadastre câmera/local, informe o token do bot e Chat ID, ative Telegram e salve antes de iniciar a captura. Canais começam desativados; salvar configurações não envia mensagens. A CLI funciona independentemente dessas configurações.
 
+A prévia ocupa a mesma área 16:9 antes e depois de iniciar, com até 720 pixels de largura; as evidências preservam a imagem original. Nesta máquina, mantenha **CPU otimizada (OpenVINO)**. Use **3 análises/s** para aliviar o processamento ou **10** para priorizar fluidez. Selecionar 25 ou 30 apenas aumenta o limite solicitado; acompanhe o **FPS observado** para saber a taxa real. Reinicie o servidor após atualizar o código.
+
 Fotos podem ser consultadas em **Ocorrências**. Tokens digitados ficam na sessão; `reports/settings.json` guarda preferências sem credenciais. **Enviar teste aos canais ativos** envia uma mensagem real quando acionado. Outlook é opcional e exige token OAuth2 SMTP fornecido pelo operador; login e renovação Microsoft não estão implementados. [Guia de alertas](docs/ALERTS.md).
 
-![Monitor simples com inferência real do modelo de capacete e colete](docs/images/absence-monitor-ui.png)
+![Monitor simples com inferência real do modelo de capacete e colete](docs/images/presentation-2026-09-30-ui.png)
 
 [Veja os campos de configuração do Telegram](docs/images/absence-telegram-ui.png). As capturas usam uma pasta de teste isolada; na execução normal, as imagens e seus registros ficam em `reports/occurrences/`.
 
@@ -107,7 +113,7 @@ O container CPU serve a interface em http://localhost:8501. Prepare os pesos ant
 ## Código e testes
 
 ```text
-src/safeguard/
+src/epi_monitor/
   capture.py         # Imagem, vídeo, câmera e tempo da fonte
   preprocessing.py  # Validação BGR uint8
   inference.py      # Adaptador YOLO e backends
@@ -133,6 +139,6 @@ python -m pytest -q
 python -m pip check
 ```
 
-Testes unitários verificam contratos e erros; não medem a precisão de um modelo em produção. Diagnóstico: `python -m safeguard --debug <subcomando> ...`.
+Em **29/09/2026, 558 testes passaram**; dependências, compilação e inicializador também foram verificados. Os testes verificam contratos e erros; não medem a precisão de um modelo em produção. Diagnóstico: `python -m epi_monitor --debug <subcomando> ...`.
 
-[Arquitetura](docs/ARCHITECTURE.md) · [Aderência ao TCC](docs/TCC_ALIGNMENT.md) · [Treino e avaliação](docs/ML.md) · [Validação realizada](docs/VALIDATION.md).
+[Arquitetura](docs/ARCHITECTURE.md) · [Aderência ao TCC](docs/TCC_ALIGNMENT.md) · [Treino e avaliação](docs/ML.md) · [Validação realizada](docs/VALIDATION.md) · [Revisão para apresentação](docs/PRESENTATION_CHECK.md).

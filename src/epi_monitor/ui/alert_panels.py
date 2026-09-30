@@ -12,11 +12,11 @@ import cv2
 import numpy as np
 import streamlit as st
 
-from safeguard.events import CameraContext, EventPolicy, EventStore
-from safeguard.notifications import (
+from epi_monitor.events import CameraContext, EventPolicy, EventStore
+from epi_monitor.notifications import (
     EmailConfig, EmailSender, NotificationDispatcher, TelegramConfig, TelegramSender,
 )
-from safeguard.types import FrameResult
+from epi_monitor.types import FrameResult
 
 
 DEFAULTS = {
@@ -30,7 +30,9 @@ DEFAULTS = {
 
 
 def reports_root() -> Path:
-    return Path(os.environ.get("SAFEGUARD_REPORTS_DIR", "reports")).expanduser().resolve()
+    # Preserve an existing installation's storage configuration on upgrade.
+    configured = os.environ.get("EPI_REPORTS_DIR", os.environ.get("SAFEGUARD_REPORTS_DIR", "reports"))
+    return Path(configured).expanduser().resolve()
 
 
 def load_settings() -> dict:
@@ -232,7 +234,7 @@ def render_alert_settings(running: bool):
 def _send_test():
     try:
         frame = np.full((360, 640, 3), (35, 48, 60), dtype=np.uint8)
-        cv2.putText(frame, "SafeGuard - TESTE DE CONEXAO", (25, 180), cv2.FONT_HERSHEY_SIMPLEX, .75, (80, 235, 180), 2)
+        cv2.putText(frame, "Deteccao de EPIs - TESTE DE CONEXAO", (25, 180), cv2.FONT_HERSHEY_SIMPLEX, .75, (80, 235, 180), 2)
         result = FrameResult(frame, [], {}, [], 0.0, 0.0, 0)
         store = event_store()
         event = store.save(result, frame, camera_context(), kind="manual", reasons=["Teste de conexão solicitado na interface"], demo_mode=True)
@@ -265,29 +267,32 @@ def render_occurrences():
         st.info("Nenhuma ocorrência salva. Inicie uma fonte real e ative a gravação automática, ou use 'Salvar imagem agora' no monitoramento.")
         return
     st.caption(f"Exibindo as {len(events)} ocorrências mais recentes.")
+    labels = {}
     for event in events:
         try:
             timestamp = datetime.fromisoformat(event["timestamp_utc"]).astimezone().strftime("%d/%m/%Y %H:%M:%S %Z")
         except (ValueError, KeyError):
             timestamp = str(event.get("timestamp_utc", ""))
-        title = f"{timestamp} · {event.get('camera_name', '')} · {event.get('location', '')}"
-        with st.expander(title):
-            st.write(" · ".join(event.get("reasons", [])))
-            st.caption(f"ID: {event['id']} · Tipo: {event.get('kind')} · Modo: {event.get('model_mode')}")
-            snapshot = Path(event["snapshot_path"])
-            try:
-                content = snapshot.read_bytes()
-                st.image(content, width="stretch")
-                st.download_button("Baixar imagem JPG", content, file_name=f"{event['id']}.jpg", mime="image/jpeg", key=f"photo_{event['id']}")
-                st.download_button("Baixar registro JSON", json.dumps(event, ensure_ascii=False, indent=2),
-                                   file_name=f"{event['id']}.json", mime="application/json", key=f"json_{event['id']}")
-            except OSError:
-                st.warning("A imagem foi removida ou está indisponível no disco.")
-            deliveries = event.get("deliveries", {})
-            if not deliveries:
-                st.caption("Armazenado localmente. Nenhum envio registrado.")
-            for channel, delivery in deliveries.items():
-                status = delivery.get("status", "")
-                labels = {"pending": "Na fila", "accepted": "Aceito pelo provedor", "failed": "Falhou", "queue_full": "Fila cheia"}
-                st.write(f"{channel}: {labels.get(status, status)} — {delivery.get('detail', '')}")
-            st.caption("Aceito pelo provedor confirma a resposta da API/SMTP; não confirma leitura ou entrega ao destinatário.")
+        labels[event["id"]] = f"{timestamp} · {event.get('camera_name', '')} · {event.get('location', '')} · {event['id'][:8]}"
+    st.caption("Somente a foto selecionada é carregada. Use Atualizar histórico para consultar novas imagens e o status dos envios.")
+    selected = st.selectbox("Ocorrência", list(labels), format_func=labels.get, key="selected_occurrence")
+    event = next(item for item in events if item["id"] == selected)
+    st.write(" · ".join(event.get("reasons", [])))
+    st.caption(f"ID: {event['id']} · Tipo: {event.get('kind')} · Modo: {event.get('model_mode')}")
+    snapshot = Path(event["snapshot_path"])
+    try:
+        content = snapshot.read_bytes()
+        st.image(content, width="stretch")
+        st.download_button("Baixar imagem JPG", content, file_name=f"{event['id']}.jpg", mime="image/jpeg", key=f"photo_{event['id']}")
+        st.download_button("Baixar registro JSON", json.dumps(event, ensure_ascii=False, indent=2),
+                           file_name=f"{event['id']}.json", mime="application/json", key=f"json_{event['id']}")
+    except OSError:
+        st.warning("A imagem foi removida ou está indisponível no disco.")
+    deliveries = event.get("deliveries", {})
+    if not deliveries:
+        st.caption("Armazenado localmente. Nenhum envio registrado.")
+    for channel, delivery in deliveries.items():
+        status = delivery.get("status", "")
+        statuses = {"pending": "Na fila", "accepted": "Aceito pelo provedor", "failed": "Falhou", "queue_full": "Fila cheia"}
+        st.write(f"{channel}: {statuses.get(status, status)} — {delivery.get('detail', '')}")
+    st.caption("Aceito pelo provedor confirma a resposta da API/SMTP; não confirma leitura ou entrega ao destinatário.")

@@ -10,7 +10,7 @@ import shutil
 import subprocess
 import sys
 
-import safeguard
+import epi_monitor
 import cv2
 import yaml
 from ultralytics import YOLO
@@ -43,7 +43,7 @@ def main():
     (output / "NOT_SCIENTIFIC_RESULTS.txt").write_text(__doc__, encoding="utf-8")
 
     def run(*command):
-        subprocess.run([sys.executable, "-m", "safeguard", *command], cwd=ROOT, check=True)
+        subprocess.run([sys.executable, "-m", "epi_monitor", *command], cwd=ROOT, check=True)
 
     run("validate", "--model", str(model), "--data", str(dataset), "--device", "cpu",
         "--project", str(output), "--name", "plots")
@@ -52,8 +52,8 @@ def main():
         shutil.copyfile(model, isolated_model)
         run("export", "--model", str(isolated_model), "--format", "openvino", "--precision", "int8",
             "--data", str(dataset), "--device", "cpu")
-        from safeguard.config import InferenceConfig
-        from safeguard.inference import YOLODetector
+        from epi_monitor.config import InferenceConfig
+        from epi_monitor.inference import YOLODetector
         detector = YOLODetector(InferenceConfig(model_path=str(output / "smoke_only_int8_openvino_model"))).load()
         for _ in range(2):
             assert detector.predict(image), "Nenhuma saída do OpenVINO INT8"

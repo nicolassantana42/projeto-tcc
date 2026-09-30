@@ -145,7 +145,7 @@ def event_caption(event: Mapping[str, Any]) -> str:
     if not isinstance(counts, Mapping):
         counts = {}
     text = "\n".join((
-        f"SafeGuard | {kind}",
+        f"Detecção de EPIs | {kind}",
         f"Câmera: {_plain(event.get('camera_name'))}",
         f"Local: {_plain(event.get('location'))}",
         f"Data/hora UTC: {_plain(event.get('timestamp_utc'), 50)}",
@@ -216,7 +216,7 @@ class TelegramSender:
             response = self._session.post(
                 f"https://api.telegram.org/bot{self.config.token}/sendPhoto",
                 data={"chat_id": self.config.chat_id, "caption": event_caption(event)},
-                files={"photo": ("safeguard-event.jpg", photo, "image/jpeg")},
+                files={"photo": ("epi-event.jpg", photo, "image/jpeg")},
                 timeout=_HTTP_TIMEOUT,
                 allow_redirects=False,
             )
@@ -259,13 +259,13 @@ class EmailSender:
         if not self.config.enabled:
             raise NotificationError("disabled")
         message = EmailMessage()
-        message["Subject"] = "SafeGuard | Evento de monitoramento"
+        message["Subject"] = "Detecção de EPIs | Evento de monitoramento"
         message["From"] = self.config.sender
         message["To"] = self.config.recipient
         message["Date"] = formatdate(localtime=False)
         message["Message-ID"] = make_msgid()
         message.set_content(event_caption(event))
-        message.add_attachment(_snapshot_jpeg(event), maintype="image", subtype="jpeg", filename="safeguard-event.jpg")
+        message.add_attachment(_snapshot_jpeg(event), maintype="image", subtype="jpeg", filename="epi-event.jpg")
         context = ssl.create_default_context()
         client = None
         try:
@@ -332,7 +332,7 @@ class NotificationDispatcher:
         self._accepting = True
         self._active = 0
         self._counts = {"pending": 0, "accepted": 0, "failed": 0, "store_errors": 0}
-        self._thread = threading.Thread(target=self._run, name="safeguard-notifications", daemon=True)
+        self._thread = threading.Thread(target=self._run, name="epi_monitor-notifications", daemon=True)
         self._thread.start()
 
     def _record(self, event_id: str, channel: str, status: str, detail: str = "") -> None:

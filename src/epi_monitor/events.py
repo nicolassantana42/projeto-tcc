@@ -146,7 +146,8 @@ class EventStore:
             if metadata.is_symlink() or snapshot.is_symlink() or not snapshot.is_file():
                 return None
             event = json.loads(metadata.read_text(encoding="utf-8"))
-            if not isinstance(event, dict) or type(event.get("schema_version")) is not int or event.get("schema_version") != 1 or event.get("producer") != "safeguard" or event.get("id") != folder.name:
+            # Historical evidence remains readable after the package rename.
+            if not isinstance(event, dict) or type(event.get("schema_version")) is not int or event.get("schema_version") != 1 or event.get("producer") not in {"epi-monitor", "safeguard"} or event.get("id") != folder.name:
                 return None
             timestamp = datetime.fromisoformat(event["timestamp_utc"])
             if timestamp.tzinfo is None:
@@ -243,7 +244,7 @@ class EventStore:
         event_id = str(uuid4())
         folder = self._folder(event_id)
         event = {
-            "schema_version": 1, "producer": "safeguard", "id": event_id, "timestamp_utc": _utc_now(),
+            "schema_version": 1, "producer": "epi-monitor", "id": event_id, "timestamp_utc": _utc_now(),
             "camera_id": context.camera_id, "camera_name": context.name, "location": context.location,
             "kind": kind, "reasons": list(reasons), "model_mode": "demo" if demo_mode else "ppe",
             "counts": {str(label): int(count) for label, count in result.counts.items()},

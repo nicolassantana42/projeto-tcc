@@ -20,7 +20,7 @@ Problemas encontrados:
 
 ## 2. Substituição estrutural
 
-1. Criar pacote instalável `src/safeguard` e contratos `Detection`/`FrameResult`.
+1. Criar pacote instalável `src/epi_monitor` e contratos `Detection`/`FrameResult`.
 2. Isolar `capture`, `preprocessing`, `inference`, `rules`, `pipeline`, `rendering`.
 3. Substituir GUIs duplicadas por `ui/app.py` e exportação por `reporting.py`.
 4. Criar CLI única em `cli.py` e workflows científicos em `ml.py`.

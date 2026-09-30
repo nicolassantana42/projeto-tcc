@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from safeguard import config, factory, runner
-from safeguard.cli import parser
+from epi_monitor import config, factory, runner
+from epi_monitor.cli import parser
 
 
 NAMES = {0: "Hardhat", 1: "Safety Vest", 2: "NO-Hardhat", 3: "NO-Safety Vest"}

@@ -1,9 +1,14 @@
 # Modelos
 
-O padrão da cascata é `yolo11n.pt` para pessoas e **`ppe/absence.pt`** para EPI.
-O primeiro é COCO oficial: `python -m safeguard download` prepara esse arquivo,
+O padrão nativo da cascata é `yolo11n.pt` para pessoas e **`ppe/absence.pt`** para EPI.
+O primeiro é COCO oficial: `python -m epi_monitor download` prepara esse arquivo,
 que não reconhece EPIs. O segundo é o YOLO11n ajustado localmente no RF100 com
 capacete, colete e suas ausências explícitas. O download de COCO não o produz.
+
+Na interface desta instalação CPU, o perfil automático usa os exports
+**OpenVINO FP32 em 640** dos dois pesos, preparados e reavaliados em 29/09.
+Sem runtime/artefatos OpenVINO ou com GPU disponível, recomenda PyTorch.
+[Configuração e validação](../docs/PRESENTATION_CHECK.md).
 
 Prepare dados/pesos e execute o treinamento conforme
 [docs/ABSENCE_DATA.md](../docs/ABSENCE_DATA.md). Após revisar a validação:
@@ -22,6 +27,8 @@ verifica integridade, não comprova precisão no local de instalação.
 |---|---|
 | `yolo11n.pt` | Detector de pessoas COCO, primeiro estágio |
 | `ppe/absence.pt` | Segundo estágio padrão; ajuste local com ausência de colete |
+| `yolo11n_openvino_model/` | Primeiro estágio OpenVINO FP32 em 640 |
+| `ppe/absence_openvino_model/` | Segundo estágio OpenVINO FP32 em 640; não é INT8 |
 | `ppe/absence-base.pt` | Ponto de partida externo YOLO11n; origem e hash preservados |
 | `ppe/best.pt` | Experimento histórico Construction-PPE de 11 classes, sem `no_vest` |
 | `ppe/best_int8_openvino_model/` | INT8 do modelo histórico; não é export do `absence.pt` |

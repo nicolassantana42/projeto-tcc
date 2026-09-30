@@ -14,17 +14,19 @@ import cv2
 import numpy as np
 import streamlit as st
 
-from safeguard.capture import CaptureError, VideoSource, open_source, ImageSource
-from safeguard.config import DEFAULT_PERSON_MODEL, DEFAULT_PPE_MODEL, InferenceConfig
-from safeguard.detection import canonical_label
-from safeguard.inference import YOLODetector
-from safeguard.pipeline import Pipeline
-from safeguard.rendering import render_frame
-from safeguard.reporting import build_report, encode_snapshot, frame_record
-from safeguard.types import Detection, FrameResult
-from safeguard.events import EventService
-from safeguard.notifications import NotificationDispatcher
-from safeguard.ui.alert_panels import (
+from epi_monitor.capture import CaptureError, VideoSource, open_source, ImageSource
+from epi_monitor.config import DEFAULT_PERSON_MODEL, DEFAULT_PPE_MODEL, InferenceConfig
+from epi_monitor.detection import canonical_label
+from epi_monitor.inference import YOLODetector
+from epi_monitor.pipeline import Pipeline
+from epi_monitor.rendering import render_frame
+from epi_monitor.reporting import build_report, encode_snapshot, frame_record
+from epi_monitor.types import Detection, FrameResult
+from epi_monitor.events import EventService
+from epi_monitor.notifications import NotificationDispatcher
+from epi_monitor.ui.preview import AnalysisPacer, encode_preview, preview_markup
+from epi_monitor.ui import profiles
+from epi_monitor.ui.alert_panels import (
     camera_context, configured_senders, event_policy, event_store, init_alert_settings,
     render_alert_settings, render_occurrences, reports_root,
 )
@@ -33,6 +35,8 @@ from safeguard.ui.alert_panels import (
 HISTORY_LIMIT = 300
 IDLE_TIMEOUT_SECONDS = 45
 PREVIEW = "Prévia ilustrativa"
+ANALYSIS_RATES = {"3 análises/s · econômico": 3, "10 análises/s · padrão": 10,
+                  "25 análises/s": 25, "30 análises/s": 30}
 
 STYLE = """
 <style>
@@ -115,7 +119,7 @@ class _SessionRuntime:
     """
 
     def __init__(self, *, source_label, capture=None, pipeline=None, temporary_path=None, illustrative=False,
-                 event_service=None, dispatcher=None):
+                 event_service=None, dispatcher=None, analysis_rate=10):
         self.source_label = source_label
         self.capture = capture
         self.pipeline = pipeline
@@ -126,13 +130,16 @@ class _SessionRuntime:
         self.last_event = None
         self.event_error = ""
         self.annotated_frame = None
+        self.preview_bytes = None
+        self.preview_error = ""
+        self.pacer = AnalysisPacer(analysis_rate)
         self.closed = False
         self.frame_index = 0
         self.frame_times = deque(maxlen=30)
         self.last_heartbeat = time.monotonic()
         self._lock = threading.RLock()
         self._finished = threading.Event()
-        self._watchdog = threading.Thread(target=self._watch, daemon=True, name="safeguard-session-cleanup")
+        self._watchdog = threading.Thread(target=self._watch, daemon=True, name="epi-session-cleanup")
         self._watchdog.start()
 
     @property
@@ -146,11 +153,16 @@ class _SessionRuntime:
         elapsed = self.frame_times[-1] - self.frame_times[0]
         return (len(self.frame_times) - 1) / elapsed if elapsed > 0 else None
 
+    def should_process(self):
+        self.last_heartbeat = time.monotonic()
+        return isinstance(self.capture, ImageSource) or self.pacer.ready()
+
     def step(self, confidence, iou):
         with self._lock:
             if self.closed:
                 return None
             self.last_heartbeat = time.monotonic()
+            self.pacer.started()
             if self.illustrative:
                 self.frame_index += 1
                 result = _illustrative_result(self.frame_index)
@@ -160,6 +172,12 @@ class _SessionRuntime:
                     return None
                 result = self.pipeline.process(frame, confidence=confidence, iou=iou)
             self.annotated_frame = result.frame if self.illustrative else render_frame(result)
+            try:
+                self.preview_bytes = encode_preview(self.annotated_frame)
+                self.preview_error = ""
+            except (cv2.error, ValueError):
+                self.preview_bytes = None
+                self.preview_error = "Prévia reduzida indisponível; a detecção e o registro de evidências continuam."
             if not self.illustrative and self.event_service is not None:
                 try:
                     if isinstance(self.capture, ImageSource):
@@ -231,9 +249,10 @@ def _start(source_type, upload, model_path, model_mode, device, camera_index, st
     temporary_path = None
     capture = None
     dispatcher = None
+    analysis_rate = ANALYSIS_RATES[st.session_state.analysis_rate]
     try:
         if source_type == PREVIEW:
-            runtime = _SessionRuntime(source_label=PREVIEW, illustrative=True)
+            runtime = _SessionRuntime(source_label=PREVIEW, illustrative=True, analysis_rate=analysis_rate)
         else:
             if source_type in {"Arquivo de vídeo", "Imagem"}:
                 if upload is None and not video_path.strip():
@@ -242,7 +261,7 @@ def _start(source_type, upload, model_path, model_mode, device, camera_index, st
                     source = str(Path(video_path).expanduser())
                 else:
                     suffix = Path(upload.name).suffix.lower()
-                    with tempfile.NamedTemporaryFile(prefix="safeguard_", suffix=suffix, delete=False) as file:
+                    with tempfile.NamedTemporaryFile(prefix="epi_", suffix=suffix, delete=False) as file:
                         temporary_path = file.name
                         file.write(upload.getbuffer())
                     source = temporary_path
@@ -260,7 +279,7 @@ def _start(source_type, upload, model_path, model_mode, device, camera_index, st
             )
             with st.spinner("Carregando modelo e abrindo a fonte…"):
                 if model_mode == "EPI treinado":
-                    from safeguard.factory import create_cascade
+                    from epi_monitor.factory import create_cascade
                     pipeline = create_cascade(person_model_path, model_path.strip(), device,
                                               confidence=st.session_state.confidence, iou=st.session_state.iou)
                     detector = pipeline.detector
@@ -279,11 +298,14 @@ def _start(source_type, upload, model_path, model_mode, device, camera_index, st
             runtime = _SessionRuntime(
                 source_label=source_type, capture=capture, pipeline=pipeline,
                 temporary_path=temporary_path, event_service=service, dispatcher=dispatcher,
+                analysis_rate=analysis_rate,
             )
         st.session_state.runtime = runtime
         st.session_state.history = deque(maxlen=HISTORY_LIMIT)
         st.session_state.latest_result = None
         st.session_state.latest_frame = None
+        st.session_state.latest_preview = None
+        st.session_state.preview_error = ""
         st.session_state.last_event = None
         st.session_state.observed_fps = None
         st.session_state.illustrative = runtime.illustrative
@@ -295,6 +317,8 @@ def _start(source_type, upload, model_path, model_mode, device, camera_index, st
             "person_model": Path(person_model_path).name if model_mode == "EPI treinado" else None,
             "device": runtime.device,
             "history_limit_frames": HISTORY_LIMIT,
+            "analysis_rate_limit": analysis_rate,
+            "analysis_target_period_seconds": 1 / analysis_rate,
             "camera_id": camera_context().camera_id,
             "camera_name": camera_context().name,
             "location": camera_context().location,
@@ -336,6 +360,7 @@ def _render_ppe_capabilities():
         st.warning("Este modelo não tem classe explícita de " + " / ".join(missing)
                    + ". EPI não encontrado permanece inconclusivo e não gera alerta de ausência desse item.")
     st.caption("A existência da classe não garante acerto. Confira as métricas dos pesos e revise as evidências.")
+    st.caption("Escopo desta avaliação: capacete e colete. Botas não são avaliadas.")
 
 
 def _render_ppe_assessments(result):
@@ -367,6 +392,7 @@ def _live_panel(compact=False):
         if runtime.closed:
             _stop("Sessão pausada por inatividade. Inicie novamente para reabrir a captura.")
             st.rerun()
+    if runtime is not None and runtime.should_process():
         try:
             result = runtime.step(st.session_state.confidence, st.session_state.iou)
             if result is None:
@@ -374,6 +400,8 @@ def _live_panel(compact=False):
                 st.rerun()
             st.session_state.latest_result = result
             st.session_state.latest_frame = runtime.annotated_frame
+            st.session_state.latest_preview = runtime.preview_bytes
+            st.session_state.preview_error = runtime.preview_error
             st.session_state.observed_fps = runtime.observed_fps
             st.session_state.active_device = runtime.device
             st.session_state.active_metadata["device"] = runtime.device
@@ -407,7 +435,7 @@ def _live_panel(compact=False):
         metrics[1].metric("Inferência total", f"{result.inference_ms:.1f} ms" if has_metrics else "—")
         frame = st.session_state.get("latest_frame")
         if frame is not None:
-            st.image(frame, channels="BGR", width="stretch")
+            _show_preview(frame)
             st.caption(f"Frame {result.frame_index} · {sum(result.counts.values())} caixas · "
                        f"Dispositivo: {st.session_state.active_device}")
             if result.assessments:
@@ -415,6 +443,7 @@ def _live_panel(compact=False):
             elif not illustrative:
                 st.caption("Nenhuma pessoa avaliada para EPI neste frame.")
         else:
+            _show_preview()
             st.info("Selecione uma imagem, vídeo ou câmera e clique em Iniciar. As pessoas detectadas aparecem aqui com caixas e nível de confiança.")
         if illustrative:
             st.caption("Prévia ilustrativa: desenhos sem inferência de modelo.")
@@ -435,7 +464,7 @@ def _live_panel(compact=False):
     metrics[1].metric("Capacidade do pipeline", f"{pipeline_fps:.1f} FPS" if pipeline_fps else "—")
     metrics[2].metric("Latência de inferência", f"{result.inference_ms:.1f} ms" if has_metrics else "—")
     metrics[3].metric("Detecções no frame", sum(counts.values()) if result else "—")
-    st.caption("FPS observado: média de até 30 frames, incluindo captura, renderização e interface (até ~10 FPS). "
+    st.caption("FPS observado: média de até 30 frames, incluindo captura, renderização, interface e limite de análises selecionado. "
                "Capacidade do pipeline = 1.000 / tempo de processamento; não inclui a interface.")
     if runtime is not None and runtime.event_error:
         st.error(runtime.event_error)
@@ -457,12 +486,11 @@ def _live_panel(compact=False):
         status_col.markdown(f'<span class="pill">{status}</span>', unsafe_allow_html=True)
         frame = st.session_state.get("latest_frame")
         if frame is None:
+            _show_preview()
             st.info("Selecione Webcam local, Arquivo de vídeo ou RTSP / IP e clique em Iniciar. "
                     "As pessoas detectadas aparecem aqui com caixas e nível de confiança.")
-            if st.session_state.get("source_type") == PREVIEW:
-                st.image(_illustrative_result(0).frame, channels="BGR", width="stretch")
         else:
-            st.image(frame, channels="BGR", width="stretch")
+            _show_preview(frame)
             st.caption(f"Frame {result.frame_index:,} · {st.session_state.active_metadata['source']} · "
                        f"Dispositivo: {st.session_state.active_device}")
         if illustrative and result is not None:
@@ -498,12 +526,35 @@ def _live_panel(compact=False):
         st.caption(f"Histórico em memória: {len(st.session_state.history)} / {HISTORY_LIMIT} frames.")
 
 
+def _show_preview(frame=None):
+    content = st.session_state.get("latest_preview") if frame is not None else None
+    st.markdown(preview_markup(content), unsafe_allow_html=True)
+    if st.session_state.get("preview_error"):
+        st.caption(st.session_state.preview_error)
+
+
+def _remember_model_path(key):
+    st.session_state.model_paths[key] = st.session_state[key]
+
+
+def _model_path_input(label, *, default, key, disabled):
+    # Streamlit drops keys for widgets that disappear when the backend changes.
+    # A separate non-widget map preserves each profile's user-entered paths.
+    if "model_paths" not in st.session_state:
+        st.session_state.model_paths = {}
+    if key not in st.session_state:
+        st.session_state[key] = st.session_state.model_paths.get(key, default)
+    return st.text_input(label, key=key, disabled=disabled,
+                         on_change=_remember_model_path, args=(key,))
+
+
 def main():
-    st.set_page_config(page_title="SafeGuard | Visão e segurança", page_icon="🟢", layout="wide")
+    st.set_page_config(page_title="Detecção de EPIs", page_icon="🟢", layout="wide")
     init_alert_settings()
     for key, value in {
         "runtime": None, "history": deque(maxlen=HISTORY_LIMIT), "latest_result": None,
-        "latest_frame": None, "notice": "", "export": None, "confidence": .4, "iou": .45,
+        "latest_frame": None, "latest_preview": None, "preview_error": "",
+        "notice": "", "export": None, "confidence": .4, "iou": .45,
     }.items():
         if key not in st.session_state:
             st.session_state[key] = value
@@ -535,12 +586,33 @@ def main():
         elif source_type == "RTSP / IP":
             stream_url = st.text_input("URL do stream", type="password", placeholder="rtsp://…", disabled=running)
         model_mode = st.radio("Finalidade do modelo", ["EPI treinado", "Demo COCO"], disabled=running or source_type == PREVIEW)
-        default_path = DEFAULT_PERSON_MODEL if model_mode == "Demo COCO" else DEFAULT_PPE_MODEL
-        model_path = st.text_input("Caminho do modelo", value=default_path, key=f"model_{model_mode}", disabled=running or source_type == PREVIEW)
-        person_model_path = DEFAULT_PERSON_MODEL
+        if "backend" not in st.session_state:
+            st.session_state.backend = profiles.recommended_profile()
+        backend = st.selectbox("Execução", [profiles.PYTORCH, profiles.OPENVINO],
+                               key="backend",
+                               disabled=running or source_type == PREVIEW)
+        use_openvino = backend == profiles.OPENVINO
+        person_default = profiles.OPENVINO_PERSON if use_openvino else DEFAULT_PERSON_MODEL
+        ppe_default = profiles.OPENVINO_PPE if use_openvino else DEFAULT_PPE_MODEL
+        default_path = person_default if model_mode == "Demo COCO" else ppe_default
+        model_path = _model_path_input("Caminho do modelo", default=default_path, key=f"model_{model_mode}_{backend}", disabled=running or source_type == PREVIEW)
+        person_model_path = person_default
         if model_mode == "EPI treinado":
-            person_model_path = st.text_input("Modelo de pessoas — primeira etapa", value=person_model_path, disabled=running)
-        device = st.selectbox("Dispositivo", ["auto", "cpu", "cuda:0", "mps"], disabled=running or source_type == PREVIEW)
+            person_model_path = _model_path_input("Modelo de pessoas — primeira etapa", default=person_default,
+                                                 key=f"person_model_{backend}", disabled=running)
+        if use_openvino:
+            device = "cpu"
+            st.caption("OpenVINO usa CPU com os dois modelos em 640 pixels. Este perfil não usa quantização; "
+                       "o FPS depende da máquina. PyTorch continua disponível em Execução.")
+            if not profiles.openvino_available():
+                st.warning("O perfil OpenVINO precisa da dependência e dos dois modelos exportados. "
+                           "Selecione Padrão (PyTorch) ou siga docs/ML.md para preparar o perfil.")
+        else:
+            device = st.selectbox("Dispositivo", ["auto", "cpu", "cuda:0", "mps"], disabled=running or source_type == PREVIEW)
+        analysis_rate = st.selectbox("Limite de análises por segundo", list(ANALYSIS_RATES), index=1,
+                                     key="analysis_rate", disabled=running)
+        st.caption("Este é um limite, não uma garantia de FPS. 25/30 exigem que captura e modelos acompanhem esse ritmo; "
+                   "3 reduz o uso de CPU. Veja o FPS observado. Pare para mudar o limite.")
         if model_mode == "Demo COCO":
             st.caption("COCO demonstra detecção geral; não é um modelo de identificação de EPIs.")
         else:
@@ -568,6 +640,8 @@ def main():
 
     st.title("Detecção de pessoas e EPIs")
     st.caption("Capacete e colete por pessoa. EPI detectado, não seguro com evidência explícita, ou inconclusivo.")
+    st.caption("Escopo desta avaliação: capacete e colete. Botas não são avaliadas. "
+               "A prévia tem tamanho fixo; as evidências mantêm a resolução da captura.")
     st.caption("1. Configure câmera, local e Telegram em Alertas e integrações. 2. Escolha a fonte e inicie. "
                "3. Consulte fotos e envios em Ocorrências.")
     if st.session_state.notice:
@@ -594,14 +668,14 @@ def main():
         if model_mode == "Demo COCO" and settings["trigger"] == "ppe":
             st.info("Para salvar presença de pessoas com COCO, escolha 'Pessoa detectada' na aba Alertas e integrações. "
                     "A regra de falta de EPI precisa de um modelo treinado.")
-        @st.fragment(run_every=.1 if running else None)
+        @st.fragment(run_every=1 / ANALYSIS_RATES[analysis_rate] if running else None)
         def live_fragment():
             _live_panel(compact=compact)
         live_fragment()
         if st.button("Salvar imagem agora", disabled=st.session_state.latest_frame is None or st.session_state.get("illustrative", True)):
             try:
                 metadata = st.session_state.active_metadata
-                from safeguard.events import CameraContext
+                from epi_monitor.events import CameraContext
                 context = CameraContext(metadata["camera_id"], metadata["camera_name"], metadata["location"])
                 event = event_store().save(st.session_state.latest_result, st.session_state.latest_frame, context,
                                            kind="manual", reasons=["Captura manual solicitada na interface"],
@@ -612,7 +686,7 @@ def main():
                 st.error("Não foi possível salvar a imagem. Verifique a pasta reports e o espaço em disco.")
         _render_export()
     with occurrences_tab:
-        @st.fragment(run_every=2 if running else None)
+        @st.fragment
         def history_fragment():
             render_occurrences()
         history_fragment()
@@ -636,7 +710,7 @@ def _render_export():
                         "iou_at_export": st.session_state.iou,
                     },
                 ),
-                "name": "safeguard_" + datetime.now().strftime("%Y%m%d_%H%M%S"),
+                "name": "deteccao_epi_" + datetime.now().strftime("%Y%m%d_%H%M%S"),
             }
         export = st.session_state.export
         if export:

@@ -9,7 +9,7 @@ import json
 import subprocess
 import sys
 
-import safeguard  # Configure local Ultralytics settings before its import.
+import epi_monitor  # Configure local Ultralytics settings before its import.
 import cv2
 from ultralytics.utils import ASSETS
 
@@ -34,7 +34,7 @@ def main():
         writer.release()
 
     def run(*args):
-        subprocess.run([sys.executable, "-m", "safeguard", *args], cwd=ROOT, check=True)
+        subprocess.run([sys.executable, "-m", "epi_monitor", *args], cwd=ROOT, check=True)
 
     run("infer", "--source", str(video), "--max-frames", "8", "--device", "cpu",
         "--output", str(output / "pt.jsonl"), "--snapshot", str(output / "pt.png"))

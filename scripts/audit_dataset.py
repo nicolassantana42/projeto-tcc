@@ -6,7 +6,7 @@ import sys
 # Also usable from a checkout before an editable install (dependencies required).
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from safeguard.dataset_audit import main
+from epi_monitor.dataset_audit import main
 
 
 if __name__ == "__main__":

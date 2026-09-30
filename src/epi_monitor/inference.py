@@ -1,5 +1,6 @@
 """Adaptador YOLO com imports tardios e saídas independentes do backend."""
 
+from contextlib import nullcontext
 import importlib
 import json
 import logging
@@ -9,6 +10,7 @@ from typing import Any
 import numpy as np
 
 from .config import InferenceConfig, validate_threshold
+from .cpu_runtime import configure_openvino_cpu, cpu_inference_setup
 from .hardware import select_device
 from .preprocessing import preprocess_frame
 from .types import Detection
@@ -127,11 +129,19 @@ class YOLODetector:
                 if self.imgsz != self.config.imgsz:
                     logger.warning("Modelo exportado tem entrada fixa %sx%s; usando esse tamanho em vez de imgsz=%s.", height, width, self.config.imgsz)
                 model.overrides["imgsz"] = self.imgsz
-            # Initialize once: model.names otherwise builds a temporary backend,
-            # and subsequent predict calls would initialize the runtime again.
-            predictor = model._smart_load("predictor")(overrides=model.overrides, _callbacks=model.callbacks)
-            predictor.setup_model(model=model.model, verbose=False)
-            model.predictor = predictor
+        native_cpu = path.suffix.lower() == ".pt" and self.device == "cpu"
+        if path.suffix.lower() != ".pt" or native_cpu:
+            # Exported names otherwise create a temporary backend. For native
+            # CPU, initialize here so select_device cannot overwrite our budget
+            # on the first frame. GPU keeps its lazy, precision-aware setup.
+            if native_cpu:
+                model.overrides["half"] = False
+            with cpu_inference_setup() if native_cpu else nullcontext():
+                predictor = model._smart_load("predictor")(overrides=model.overrides, _callbacks=model.callbacks)
+                predictor.setup_model(model=model.model, verbose=False)
+                if path.is_dir():
+                    configure_openvino_cpu(predictor, path)
+                model.predictor = predictor
         names = model.names
         self.names = {int(key): str(value) for key, value in names.items()} if isinstance(names, dict) else dict(enumerate(names))
         return model

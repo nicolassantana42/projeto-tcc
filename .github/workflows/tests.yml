@@ -21,12 +21,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker compose config --quiet
-      - run: docker build -t safeguard:test .
+      - run: docker build -t projeto-tcc-epi:test .
       - run: |
-          docker run -d --name safeguard -p 8501:8501 safeguard:test
+          docker run -d --name projeto-tcc-epi -p 8501:8501 projeto-tcc-epi:test
           for i in $(seq 1 30); do
             if curl --fail http://localhost:8501/_stcore/health; then exit 0; fi
             sleep 2
           done
-          docker logs safeguard
+          docker logs projeto-tcc-epi
           exit 1

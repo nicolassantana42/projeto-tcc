@@ -6,14 +6,14 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from safeguard.config import InferenceConfig
-from safeguard.hardware import HardwareError, select_device
-from safeguard.inference import ModelError, YOLODetector, exported_input_shape, resolve_model_path
-from safeguard.pipeline import Pipeline
-from safeguard.preprocessing import preprocess_frame
-from safeguard.rendering import render_frame
-from safeguard.rules import assess_ppe
-from safeguard.types import Detection
+from epi_monitor.config import InferenceConfig
+from epi_monitor.hardware import HardwareError, select_device
+from epi_monitor.inference import ModelError, YOLODetector, exported_input_shape, resolve_model_path
+from epi_monitor.pipeline import Pipeline
+from epi_monitor.preprocessing import preprocess_frame
+from epi_monitor.rendering import render_frame
+from epi_monitor.rules import assess_ppe
+from epi_monitor.types import Detection
 
 
 @pytest.fixture
@@ -48,25 +48,25 @@ def test_preprocess_preserves_pixels_shape_and_makes_contiguous(frame):
 
 
 def test_device_prefers_cuda_then_mps_then_cpu(monkeypatch):
-    monkeypatch.setattr("safeguard.hardware._torch_capabilities", lambda: (True, True, 1))
+    monkeypatch.setattr("epi_monitor.hardware._torch_capabilities", lambda: (True, True, 1))
     assert select_device() == "cuda:0"
-    monkeypatch.setattr("safeguard.hardware._torch_capabilities", lambda: (False, True, 0))
+    monkeypatch.setattr("epi_monitor.hardware._torch_capabilities", lambda: (False, True, 0))
     assert select_device() == "mps"
-    monkeypatch.setattr("safeguard.hardware._torch_capabilities", lambda: (False, False, 0))
+    monkeypatch.setattr("epi_monitor.hardware._torch_capabilities", lambda: (False, False, 0))
     assert select_device() == "cpu"
     assert select_device("cuda:0") == "cpu"
 
 
 def test_exported_artifacts_respect_device_capabilities(monkeypatch):
-    monkeypatch.setattr("safeguard.hardware._torch_capabilities", lambda: (True, True, 1))
-    monkeypatch.setattr("safeguard.hardware._onnx_cuda_available", lambda: False)
+    monkeypatch.setattr("epi_monitor.hardware._torch_capabilities", lambda: (True, True, 1))
+    monkeypatch.setattr("epi_monitor.hardware._onnx_cuda_available", lambda: False)
     assert select_device("auto", "model.onnx") == "cpu"
     assert select_device("mps", "model.onnx") == "cpu"
     assert select_device("auto", "model_openvino_model") == "cpu"
     with pytest.raises(HardwareError, match="TensorRT"):
         select_device("cpu", "model.engine")
     assert select_device("auto", "model.engine") == "cuda:0"
-    monkeypatch.setattr("safeguard.hardware._torch_capabilities", lambda: (False, True, 0))
+    monkeypatch.setattr("epi_monitor.hardware._torch_capabilities", lambda: (False, True, 0))
     with pytest.raises(HardwareError):
         select_device("auto", "model.engine")
 
@@ -77,11 +77,25 @@ def _fake_model(monkeypatch, tmp_path, names=None, fail_gpu=False):
     calls = []
     builds = []
 
+    class Predictor:
+        def __init__(self, overrides, _callbacks):
+            self.args = SimpleNamespace(**overrides)
+
+        def setup_model(self, model, verbose):
+            self.model = model
+
     class FakeYOLO:
         def __init__(self, model_path, task):
             self.names = names or {0: "person", 1: "helmet", 2: "vest"}
             self.overrides = {}
+            self.model = model_path
+            self.callbacks = {}
+            self.predictor = None
             builds.append(self)
+
+        def _smart_load(self, name):
+            assert name == "predictor"
+            return Predictor
 
         def predict(self, **kwargs):
             calls.append(kwargs)
@@ -95,8 +109,8 @@ def _fake_model(monkeypatch, tmp_path, names=None, fail_gpu=False):
             return [SimpleNamespace(boxes=boxes)]
 
     original_import = importlib.import_module
-    monkeypatch.setattr("safeguard.inference.importlib.import_module", lambda name: SimpleNamespace(YOLO=FakeYOLO) if name == "ultralytics" else original_import(name))
-    monkeypatch.setattr("safeguard.inference.select_device", lambda *_: "cuda:0" if fail_gpu else "cpu")
+    monkeypatch.setattr("epi_monitor.inference.importlib.import_module", lambda name: SimpleNamespace(YOLO=FakeYOLO) if name == "ultralytics" else original_import(name))
+    monkeypatch.setattr("epi_monitor.inference.select_device", lambda *_: "cuda:0" if fail_gpu else "cpu")
     return str(path), calls, builds
 
 
@@ -138,7 +152,7 @@ def test_gpu_failure_reloads_a_cpu_compatible_model(monkeypatch, tmp_path, frame
 def test_gpu_initialization_failure_falls_back_for_pt(monkeypatch, tmp_path):
     path = tmp_path / "model.pt"
     path.touch()
-    monkeypatch.setattr("safeguard.inference.select_device", lambda *_: "cuda:0")
+    monkeypatch.setattr("epi_monitor.inference.select_device", lambda *_: "cuda:0")
     detector = YOLODetector(InferenceConfig(model_path=str(path)))
     attempted = []
 
@@ -162,7 +176,7 @@ def test_exported_model_missing_dependency_reports_backend(monkeypatch, tmp_path
     def unavailable(_):
         raise ImportError(module)
 
-    monkeypatch.setattr("safeguard.inference.importlib.import_module", unavailable)
+    monkeypatch.setattr("epi_monitor.inference.importlib.import_module", unavailable)
     with pytest.raises(ModelError, match="Dependência de inferência"):
         YOLODetector(InferenceConfig(model_path=str(path))).load()
 
@@ -224,9 +238,10 @@ def _fake_exported_backend(monkeypatch, shape):
             self.predictor.args.imgsz = kwargs["imgsz"]
             return []
 
-    monkeypatch.setattr("safeguard.inference.importlib.import_module", lambda name: SimpleNamespace(YOLO=ExportedYOLO))
-    monkeypatch.setattr("safeguard.inference.select_device", lambda *_: "cpu")
-    monkeypatch.setattr("safeguard.inference.exported_input_shape", lambda _: shape)
+    monkeypatch.setattr("epi_monitor.inference.importlib.import_module", lambda name: SimpleNamespace(YOLO=ExportedYOLO))
+    monkeypatch.setattr("epi_monitor.inference.select_device", lambda *_: "cpu")
+    monkeypatch.setattr("epi_monitor.inference.exported_input_shape", lambda _: shape)
+    monkeypatch.setattr("epi_monitor.inference.configure_openvino_cpu", lambda *_: None)
     return calls, paths, setups
 
 
@@ -279,7 +294,7 @@ def test_onnx_shape_uses_graph_dimensions_not_untrusted_requested_size(monkeypat
     path.touch()
     dims = [SimpleNamespace(dim_value=value) for value in (1, 3, 320, 640)]
     graph = SimpleNamespace(input=[SimpleNamespace(type=SimpleNamespace(tensor_type=SimpleNamespace(shape=SimpleNamespace(dim=dims))))])
-    monkeypatch.setattr("safeguard.inference.importlib.import_module", lambda _: SimpleNamespace(load=lambda *a, **kw: SimpleNamespace(graph=graph)))
+    monkeypatch.setattr("epi_monitor.inference.importlib.import_module", lambda _: SimpleNamespace(load=lambda *a, **kw: SimpleNamespace(graph=graph)))
     assert exported_input_shape(path) == (1, 320, 640)
 
 
@@ -297,12 +312,12 @@ def test_empty_pipeline_output_is_valid(frame):
 def test_missing_ultralytics_has_readable_error(monkeypatch, tmp_path):
     path = tmp_path / "model.pt"
     path.touch()
-    monkeypatch.setattr("safeguard.inference.select_device", lambda *_: "cpu")
+    monkeypatch.setattr("epi_monitor.inference.select_device", lambda *_: "cpu")
 
     def missing_import(_):
         raise ImportError("not installed")
 
-    monkeypatch.setattr("safeguard.inference.importlib.import_module", missing_import)
+    monkeypatch.setattr("epi_monitor.inference.importlib.import_module", missing_import)
     with pytest.raises(ModelError, match="requirements.txt"):
         YOLODetector(InferenceConfig(model_path=str(path))).load()
 

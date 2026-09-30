@@ -18,9 +18,9 @@ from typing import Any, Iterator
 
 import numpy as np
 
-from safeguard.hardware import select_device
-from safeguard.dataset_audit import audit_dataset
-from safeguard.inference import ModelError, exported_input_shape, resolve_model_path
+from epi_monitor.hardware import select_device
+from epi_monitor.dataset_audit import audit_dataset
+from epi_monitor.inference import ModelError, exported_input_shape, resolve_model_path
 
 
 class WorkflowError(RuntimeError):
@@ -38,7 +38,7 @@ def load_yolo(model_path: str) -> Any:
     path = Path(model_path).expanduser()
     if not path.exists():
         raise WorkflowError(
-            f"Modelo não encontrado: {path}. Use 'python -m safeguard download' "
+            f"Modelo não encontrado: {path}. Use 'python -m epi_monitor download' "
             "para a demonstração COCO ou informe pesos de EPI treinados."
         )
     try:
@@ -175,7 +175,7 @@ def normalized_dataset(
     if directory is not None:
         yield prepare(directory)
     else:
-        with tempfile.TemporaryDirectory(prefix="safeguard-data-") as temporary:
+        with tempfile.TemporaryDirectory(prefix="epi-data-") as temporary:
             yield prepare(Path(temporary))
 
 
@@ -491,13 +491,13 @@ def benchmark_model(
     confidence: float = 0.4, iou: float = 0.45, frames: int = 100,
     warmup: int = 10, output: str = "runs/benchmark.json", ppe_model: str | None = None,
 ) -> dict[str, Any]:
-    from safeguard.capture import VideoSource
-    from safeguard.config import InferenceConfig
-    from safeguard.inference import YOLODetector
-    from safeguard.pipeline import Pipeline
-    from safeguard.rendering import render_frame
-    from safeguard.factory import create_cascade
-    from safeguard.runner import _output_paths
+    from epi_monitor.capture import VideoSource
+    from epi_monitor.config import InferenceConfig
+    from epi_monitor.inference import YOLODetector
+    from epi_monitor.pipeline import Pipeline
+    from epi_monitor.rendering import render_frame
+    from epi_monitor.factory import create_cascade
+    from epi_monitor.runner import _output_paths
 
     if frames < 1 or warmup < 0:
         raise WorkflowError("frames deve ser positivo e warmup deve ser >= 0.")

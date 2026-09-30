@@ -103,7 +103,7 @@ def run_detection(*, source, person_model=DEFAULT_PERSON_MODEL, ppe_model=DEFAUL
                     if event:
                         event_ids.append(event["id"])
                 if show:
-                    cv2.imshow("SafeGuard - deteccao | Q para sair", annotated)
+                    cv2.imshow("Deteccao de EPIs | Q para sair", annotated)
                     if cv2.waitKey(0 if isinstance(capture, ImageSource) else 1) & 0xff in (ord("q"), 27):
                         break
     finally:

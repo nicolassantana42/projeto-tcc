@@ -54,18 +54,18 @@ def checked_path(path: Path) -> Path:
 def load_names(weights: Path) -> dict[int, str]:
     # Lazy loading: tests can verify all data transformations without importing
     # Ultralytics or deserializing any checkpoint.
-    from safeguard.ml import load_yolo
+    from epi_monitor.ml import load_yolo
     model = load_yolo(str(weights))
     return dict(model.names)
 
 
 def audit_source(source: Path) -> dict:
-    from safeguard.dataset_audit import audit_dataset
+    from epi_monitor.dataset_audit import audit_dataset
     return audit_dataset(source, require_test=True)
 
 
 def verify_mapping(source_names: dict, target_names: dict) -> dict[int, int]:
-    from safeguard.detection import canonical_label
+    from epi_monitor.detection import canonical_label
     source = {int(key): value for key, value in source_names.items()}
     target = {int(key): value for key, value in target_names.items()}
     if source != dict(enumerate(SOURCE_NAMES)):

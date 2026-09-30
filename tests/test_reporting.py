@@ -7,7 +7,7 @@ from zipfile import ZipFile
 import numpy as np
 import pytest
 
-from safeguard.reporting import build_report, encode_snapshot, frame_record
+from epi_monitor.reporting import build_report, encode_snapshot, frame_record
 
 
 def sample_result(label="helmet"):

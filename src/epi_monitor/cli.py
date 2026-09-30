@@ -8,8 +8,8 @@ import sys
 from dataclasses import asdict
 from pathlib import Path
 
-from safeguard import ml
-from safeguard.config import DEFAULT_PERSON_MODEL, DEFAULT_PPE_MODEL
+from epi_monitor import ml
+from epi_monitor.config import DEFAULT_PERSON_MODEL, DEFAULT_PPE_MODEL
 
 
 def positive(value: str) -> int:
@@ -38,11 +38,11 @@ def source_value(value: str) -> int | str:
 
 
 def parser() -> argparse.ArgumentParser:
-    cli = argparse.ArgumentParser(prog="safeguard", description="SafeGuard — detecção, treinamento e métricas reproduzíveis")
+    cli = argparse.ArgumentParser(prog="epi-monitor", description="Detecção de EPIs — detecção, treinamento e métricas reproduzíveis")
     cli.add_argument("--debug", action="store_true", help="mostrar traceback de diagnóstico")
     commands = cli.add_subparsers(dest="command", required=True)
 
-    detect = commands.add_parser("detect", help="pessoa → segundo YOLO de EPI, em imagem, vídeo ou câmera")
+    detect = commands.add_parser("detect", help="pessoa e segundo YOLO de EPI, em imagem, vídeo ou câmera")
     detect.add_argument("--source", type=source_value, required=True)
     detect.add_argument("--person-model", default=DEFAULT_PERSON_MODEL)
     detect.add_argument("--ppe-model", default=DEFAULT_PPE_MODEL)
@@ -144,19 +144,19 @@ def parser() -> argparse.ArgumentParser:
 def run_inference(args: argparse.Namespace) -> dict:
     import cv2
 
-    from safeguard.capture import open_source
-    from safeguard.config import InferenceConfig
-    from safeguard.inference import YOLODetector
-    from safeguard.pipeline import Pipeline
-    from safeguard.rendering import render_frame
+    from epi_monitor.capture import open_source
+    from epi_monitor.config import InferenceConfig
+    from epi_monitor.inference import YOLODetector
+    from epi_monitor.pipeline import Pipeline
+    from epi_monitor.rendering import render_frame
 
     if args.ppe:
-        from safeguard.runner import run_detection
+        from epi_monitor.runner import run_detection
         return run_detection(source=args.source, ppe_model=args.model, device=args.device,
                              imgsz=args.imgsz, confidence=args.confidence, iou=args.iou,
                              max_frames=args.max_frames, output=args.output, snapshot=args.snapshot)
 
-    from safeguard.runner import _output_paths
+    from epi_monitor.runner import _output_paths
     if args.snapshot and Path(args.snapshot).suffix.lower() not in {".jpg", ".jpeg", ".png"}:
         raise ml.WorkflowError("Snapshot precisa ter extensão .jpg ou .png.")
     destination, snapshot = _output_paths(args.source, args.model, args.model, args.output, args.snapshot)
@@ -201,10 +201,10 @@ def main(argv: list[str] | None = None) -> int:
         command = values.pop("command")
         values.pop("debug")
         if command == "detect":
-            from safeguard.runner import run_detection
+            from epi_monitor.runner import run_detection
             result = run_detection(**values)
         elif command == "audit-data":
-            from safeguard.dataset_audit import audit_dataset
+            from epi_monitor.dataset_audit import audit_dataset
             result = audit_dataset(**values)
             summary = {"valid": result["valid"], "summary": result["summary"],
                        "class_names": result["class_names"], "report": str(args.output),
@@ -212,8 +212,8 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(summary, ensure_ascii=False, indent=2))
             return 0 if result["valid"] else 1
         elif command == "evaluate-cascade":
-            from safeguard.factory import create_cascade
-            from safeguard.evaluation import evaluate_cascade
+            from epi_monitor.factory import create_cascade
+            from epi_monitor.evaluation import evaluate_cascade
             pipeline = create_cascade(values.pop("person_model"), values.pop("ppe_model"),
                                       values.pop("device"), values.pop("imgsz"), values["confidence"], values["iou"])
             result = evaluate_cascade(pipeline, **values)

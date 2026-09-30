@@ -9,5 +9,10 @@ font = "sans serif"
 [server]
 maxUploadSize = 200
 
+[runner]
+# Evita uma coleta completa forçada após cada frame/fragmento.
+# O coletor automático do Python continua ativo; não usamos gc.disable().
+postScriptGC = false
+
 [browser]
 gatherUsageStats = false

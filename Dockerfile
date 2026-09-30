@@ -12,10 +12,10 @@ RUN pip install torch==2.8.0 torchvision==0.23.0 --index-url https://download.py
 COPY pyproject.toml README.md ./
 COPY src ./src
 COPY .streamlit ./.streamlit
-RUN pip install --no-deps . && useradd --create-home --uid 10001 safeguard \
-    && mkdir -p models reports data && chown -R safeguard:safeguard /app
-USER safeguard
+RUN pip install --no-deps . && useradd --create-home --uid 10001 epi \
+    && mkdir -p models reports data && chown -R epi:epi /app
+USER epi
 EXPOSE 8501
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health', timeout=3)"
-CMD ["python", "-m", "streamlit", "run", "src/safeguard/ui/app.py", "--server.address=0.0.0.0", "--server.port=8501", "--server.headless=true"]
+CMD ["python", "-m", "streamlit", "run", "src/epi_monitor/ui/app.py", "--server.address=0.0.0.0", "--server.port=8501", "--server.headless=true"]

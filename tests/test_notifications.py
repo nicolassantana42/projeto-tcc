@@ -11,8 +11,8 @@ import pytest
 import requests
 from PIL import Image
 
-import safeguard.notifications as notifications
-from safeguard.notifications import (
+import epi_monitor.notifications as notifications
+from epi_monitor.notifications import (
     EmailConfig,
     EmailSender,
     NotificationDispatcher,
@@ -214,7 +214,7 @@ def test_telegram_sends_small_photo_with_event_location_and_safe_filename(monkey
     assert "2026-09-18T12:00:00+00:00" in args["data"]["caption"]
     assert event["snapshot_path"] not in args["data"]["caption"]
     filename, photo, mime = args["files"]["photo"]
-    assert filename == "safeguard-event.jpg" and mime == "image/jpeg"
+    assert filename == "epi-event.jpg" and mime == "image/jpeg"
     assert len(photo) <= 10_000_000
     assert Image.open(io.BytesIO(photo)).format == "JPEG"
     assert open(event["snapshot_path"], "rb").read() == original
@@ -311,7 +311,7 @@ def test_email_uses_verified_starttls_before_auth_and_attaches_image(monkeypatch
     attachments = list(client.message.iter_attachments())
     assert len(attachments) == 1
     assert attachments[0].get_content_type() == "image/jpeg"
-    assert attachments[0].get_filename() == "safeguard-event.jpg"
+    assert attachments[0].get_filename() == "epi-event.jpg"
     assert client.closed
 
 

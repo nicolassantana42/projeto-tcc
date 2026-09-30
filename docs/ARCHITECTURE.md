@@ -139,7 +139,7 @@ faixa com câmera, local, horário UTC e motivo. Esse horário é o momento da a
 não a data/hora da gravação do vídeo. O JSON guarda detecções,
 contagens, avaliações por pessoa, índice do frame, modo do modelo e estado de envio por canal. Não
 inclui URLs de captura nem credenciais. O histórico exibe horários convertidos
-para o fuso do servidor. `SAFEGUARD_REPORTS_DIR` altera a pasta base.
+para o fuso do servidor. `EPI_REPORTS_DIR` altera a pasta base.
 
 A gravação prepara arquivos temporários e publica a pasta completa por rename;
 atualizações de JSON também são atômicas. Locks coordenam instâncias no mesmo

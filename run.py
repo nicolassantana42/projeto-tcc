@@ -22,7 +22,7 @@ def main() -> int:
         parser.error("Use Python 3.10 a 3.13 (recomendado: 3.12).")
     environment = ROOT / ".venv"
     python = environment / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
-    stamp = environment / ".safeguard-installed"
+    stamp = environment / ".epi-installed"
     digest = hashlib.sha256(b"".join((ROOT / p).read_bytes() for p in ("requirements.txt", "pyproject.toml"))).hexdigest()
     try:
         if not python.exists():
@@ -34,12 +34,12 @@ def main() -> int:
             subprocess.run([str(python), "-m", "pip", "install", "-e", ".[dev]"], cwd=ROOT, check=True)
             stamp.write_text(digest)
         if not args.no_download and not (ROOT / "models/yolo11n.pt").is_file():
-            subprocess.run([str(python), "-m", "safeguard", "download"], cwd=ROOT, check=True)
+            subprocess.run([str(python), "-m", "epi_monitor", "download"], cwd=ROOT, check=True)
         if args.install_only:
             return 0
         print(f"Dashboard: http://localhost:{args.port}", flush=True)
         return subprocess.call([
-            str(python), "-m", "streamlit", "run", str(ROOT / "src/safeguard/ui/app.py"),
+            str(python), "-m", "streamlit", "run", str(ROOT / "src/epi_monitor/ui/app.py"),
             "--server.port", str(args.port), "--server.address", "127.0.0.1",
             "--browser.gatherUsageStats", "false",
         ], cwd=ROOT)

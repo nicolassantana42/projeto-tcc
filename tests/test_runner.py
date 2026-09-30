@@ -8,12 +8,12 @@ import cv2
 import numpy as np
 import pytest
 
-from safeguard.capture import CaptureError, ImageSource
-from safeguard.detection import CascadePipeline
-from safeguard.events import EventStore
-from safeguard.runner import run_detection
-from safeguard.types import Detection
-import safeguard.runner as runner
+from epi_monitor.capture import CaptureError, ImageSource
+from epi_monitor.detection import CascadePipeline
+from epi_monitor.events import EventStore
+from epi_monitor.runner import run_detection
+from epi_monitor.types import Detection
+import epi_monitor.runner as runner
 
 
 FRAME = np.zeros((300, 500, 3), dtype=np.uint8)

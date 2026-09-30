@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def load_names(weights: Path) -> dict[int, str]:
-    from safeguard.ml import load_yolo
+    from epi_monitor.ml import load_yolo
     return dict(load_yolo(str(weights)).names)
 
 
@@ -34,8 +34,8 @@ def _check_existing(path: Path, expected: bytes | str) -> None:
 
 
 def promote(run_dir: Path | None = None, *, root: Path = ROOT) -> dict:
-    from safeguard.config import DEFAULT_PPE_MODEL
-    from safeguard.detection import canonical_label
+    from epi_monitor.config import DEFAULT_PPE_MODEL
+    from epi_monitor.detection import canonical_label
 
     root = Path(root).absolute()
     directory = Path(run_dir or root / "runs/train/ppe_absence").absolute()

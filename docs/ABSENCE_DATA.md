@@ -93,10 +93,10 @@ e o treinamento usam os arquivos já baixados.
 ```bash
 python scripts/prepare_absence_data.py --workers 4
 python scripts/prepare_absence_model.py
-python -m safeguard audit-data --data data/ppe-absence.yaml --require-test --output runs/ppe-absence/audit-original-final.json
+python -m epi_monitor audit-data --data data/ppe-absence.yaml --require-test --output runs/ppe-absence/audit-original-final.json
 python scripts/prepare_absence_transfer.py
-python -m safeguard audit-data --data data/ppe-absence-transfer.yaml --require-test --output runs/ppe-absence/audit-transfer.json
-python -m safeguard train --model models/ppe/absence-base.pt --data data/ppe-absence-transfer.yaml --epochs 10 --imgsz 416 --batch 8 --workers 0 --seed 42 --device cpu --freeze 10 --project runs/train --name ppe_absence
+python -m epi_monitor audit-data --data data/ppe-absence-transfer.yaml --require-test --output runs/ppe-absence/audit-transfer.json
+python -m epi_monitor train --model models/ppe/absence-base.pt --data data/ppe-absence-transfer.yaml --epochs 10 --imgsz 416 --batch 8 --workers 0 --seed 42 --device cpu --freeze 10 --project runs/train --name ppe_absence
 ```
 
 O download verifica os hashes remotos de cada arquivo e recusa sobrescrever
@@ -148,8 +148,8 @@ cinco classes é apropriado: o avaliador normaliza nomes e mede as caixas
 finais dos dois estágios.
 
 ```bash
-python -m safeguard validate --model runs/train/ppe_absence/weights/best.pt --data data/ppe-absence-transfer.yaml --split val --imgsz 640 --device cpu --project runs/validate --name ppe_absence_val
-python -m safeguard evaluate-cascade --person-model models/yolo11n.pt --ppe-model runs/train/ppe_absence/weights/best.pt --data data/ppe-absence.yaml --split val --imgsz 640 --confidence 0.4 --iou 0.45 --match-iou 0.5 --device cpu --output runs/ppe-absence/trained-val.json
+python -m epi_monitor validate --model runs/train/ppe_absence/weights/best.pt --data data/ppe-absence-transfer.yaml --split val --imgsz 640 --device cpu --project runs/validate --name ppe_absence_val
+python -m epi_monitor evaluate-cascade --person-model models/yolo11n.pt --ppe-model runs/train/ppe_absence/weights/best.pt --data data/ppe-absence.yaml --split val --imgsz 640 --confidence 0.4 --iou 0.45 --match-iou 0.5 --device cpu --output runs/ppe-absence/trained-val.json
 ```
 
 Compare candidatos na mesma validação e configuração; escolha modelo e

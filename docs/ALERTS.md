@@ -122,7 +122,7 @@ decide a pasta desses downloads.
 O horário nos arquivos e nas mensagens é o **momento da análise em UTC**, não a
 data/hora da gravação original. A listagem da interface converte para o fuso do
 servidor. Sem configurar o local antes de iniciar, a ocorrência
-registra “Local não informado”. Use `SAFEGUARD_REPORTS_DIR` para escolher outra
+registra “Local não informado”. Use `EPI_REPORTS_DIR` para escolher outra
 pasta base de relatórios antes de iniciar o aplicativo.
 
 A retenção padrão busca manter as **500 ocorrências mais recentes**. Ao
@@ -208,7 +208,7 @@ O envio usa uma foto anotada com legenda contendo câmera, local, horário e
 motivo. Exemplo de conteúdo de uma ocorrência:
 
 ```text
-SafeGuard — Possível ausência de EPI
+Detecção de EPIs — Possível ausência de EPI
 Câmera: Entrada da obra
 Local: Bloco B — acesso ao canteiro
 Data/hora UTC: 2026-09-18T17:35:00+00:00
@@ -257,7 +257,7 @@ permissões aplicáveis; no fluxo delegado, o escopo de envio SMTP é
 `https://outlook.office.com/SMTP.Send`. Consulte a
 [autenticação OAuth para SMTP da Microsoft](https://learn.microsoft.com/en-us/exchange/client-developer/legacy-protocols/how-to-authenticate-an-imap-pop-smtp-application-by-using-oauth).
 
-O SafeGuard não implementa o fluxo de consentimento/login nem o refresh token.
+A aplicação não implementa o fluxo de consentimento/login nem o refresh token.
 Quando o access token expirar, atualize-o manualmente; a falha será registrada
 na ocorrência. Portanto, Telegram é o caminho indicado para a primeira
 demonstração. A senha comum de uma conta Outlook não substitui o fluxo OAuth2.

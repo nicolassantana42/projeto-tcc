@@ -12,7 +12,7 @@ import pytest
 import yaml
 from PIL import Image
 
-from safeguard import cli, ml
+from epi_monitor import cli, ml
 
 
 @pytest.fixture
@@ -355,9 +355,9 @@ def test_benchmark_percentiles_and_fps_use_actual_elapsed_samples():
 @pytest.mark.parametrize("shared_device", [False, True])
 @pytest.mark.parametrize("fallback", [False, True])
 def test_cascade_benchmark_counts_gating_and_synchronizes_each_distinct_device(monkeypatch, tmp_path, shared_device, fallback):
-    from safeguard import capture, factory
-    from safeguard.detection import CascadePipeline
-    from safeguard.types import Detection
+    from epi_monitor import capture, factory
+    from epi_monitor.detection import CascadePipeline
+    from epi_monitor.types import Detection
 
     class FakeDetector:
         def __init__(self, equipment):
@@ -418,7 +418,7 @@ def test_cascade_benchmark_counts_gating_and_synchronizes_each_distinct_device(m
 
 
 def test_default_benchmark_retains_single_detector_without_cascade(monkeypatch, tmp_path):
-    from safeguard import capture, factory, inference
+    from epi_monitor import capture, factory, inference
 
     detector = SimpleNamespace(device="cpu", imgsz=320, names={0: "person"}, predict=lambda *args, **kwargs: [])
     detector.load = lambda: detector
@@ -439,7 +439,7 @@ def test_default_benchmark_retains_single_detector_without_cascade(monkeypatch, 
 @pytest.mark.parametrize("protected,cascade", [("video.avi", False), ("person.pt", False),
                                                ("video.avi", True), ("person.pt", True), ("equipment.pt", True)])
 def test_benchmark_output_cannot_replace_input_or_weights_before_model_loading(monkeypatch, tmp_path, protected, cascade):
-    from safeguard import factory, inference
+    from epi_monitor import factory, inference
 
     artifacts = {name: tmp_path / name for name in ("video.avi", "person.pt", "equipment.pt")}
     for name, path in artifacts.items():

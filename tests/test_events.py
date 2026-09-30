@@ -7,10 +7,10 @@ import cv2
 import numpy as np
 import pytest
 
-from safeguard.events import CameraContext, EventPolicy, EventService, EventStore
-from safeguard.detection import PersonPPEAssessment
-from safeguard.rules import assess_people, supports_ppe
-from safeguard.types import Detection, FrameResult
+from epi_monitor.events import CameraContext, EventPolicy, EventService, EventStore
+from epi_monitor.detection import PersonPPEAssessment
+from epi_monitor.rules import assess_people, supports_ppe
+from epi_monitor.types import Detection, FrameResult
 
 
 NAMES = {0: "person", 1: "helmet", 2: "vest"}
@@ -241,6 +241,40 @@ def test_manual_evidence_does_not_require_detections(tmp_path):
     assert event["detections"] == []
     assert event["deliveries"] == {}
     assert Path(event["snapshot_path"]).is_file()
+
+
+@pytest.mark.parametrize("producer", ["epi-monitor", "safeguard"])
+def test_package_rename_preserves_existing_occurrences(tmp_path, producer):
+    store = EventStore(tmp_path)
+    observed = result(person())
+    event = store.save(observed, observed.frame, CameraContext(), "person", ["Pessoa"], True)
+    assert event["producer"] == "epi-monitor"
+    path = Path(event["metadata_path"])
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["producer"] = producer
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    before = path.read_bytes()
+
+    restored = EventStore(tmp_path).list_events()[0]
+    assert restored["id"] == event["id"]
+    assert restored["producer"] == producer
+    assert path.read_bytes() == before  # Reading never rewrites historical metadata.
+    store.set_delivery(event["id"], "telegram", "accepted", "Simulado")
+    assert store.list_events()[0]["deliveries"]["telegram"]["status"] == "accepted"
+    assert json.loads(path.read_text(encoding="utf-8"))["producer"] == producer
+
+
+def test_foreign_event_producer_remains_ignored_after_rename(tmp_path):
+    store = EventStore(tmp_path)
+    observed = result(person())
+    event = store.save(observed, observed.frame, CameraContext(), "person", ["Pessoa"], True)
+    path = Path(event["metadata_path"])
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["producer"] = "unrelated-application"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    assert store.list_events() == []
+    assert store.delete(event["id"]) is False
+    assert path.is_file()
 
 
 def test_retention_deletes_only_known_complete_occurrences(tmp_path):

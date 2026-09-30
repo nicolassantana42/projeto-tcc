@@ -1,5 +1,40 @@
 # Validação executada
 
+## Revisão atual: desempenho e apresentação — 29/09/2026
+
+O perfil **CPU otimizada (OpenVINO)** usa os dois modelos exportados em
+**640, FP32**, disponíveis nesta instalação. A interface o recomenda em CPU
+quando os artefatos e o runtime estão presentes; CUDA/MPS ou instalações sem
+OpenVINO permanecem no perfil PyTorch. Os exports FP32 não são quantização INT8.
+
+A repetição da cascata em **119 imagens de validação e 90 de teste** manteve
+os mesmos TP, FP e FN do modelo nativo nos limiares operacionais. O detector
+individual OpenVINO também foi reavaliado, com curvas PR e matriz de confusão:
+mAP@0,5 **0,7592**, média das cinco classes anotadas. Repetir esses dados verifica
+regressões, sem constituir um novo teste independente.
+
+No benchmark local da cascata, **3,49 FPS com PyTorch original passaram a
+7,31 FPS com OpenVINO**, sem captura, interface, gravação ou rede. **25–30 FPS
+reais não foram atingidos**. A prévia foi estabilizada em uma área 16:9 e o
+limite de análises por segundo permite controlar a carga; ele não garante FPS.
+
+Em **30/09**, uma comparação A/B da interface com o mesmo vídeo de 103 quadros
+mediu **5,43 → 7,57 FPS** após desativar a coleta completa forçada por atualização
+do Streamlit. A coleta normal do Python permanece ativa. Os relatórios exportados
+mostram caixas, scores e decisões idênticos nos 103 quadros. Essa comparação
+curta não substitui ensaio prolongado de memória nem validação com câmera real.
+
+**558 testes passaram em 22,25 s**; `pip check`, `compileall` e
+`run.py --install-only --no-download` concluíram sem erros. O modelo ativo e
+a associação por pessoa cobrem capacete/colete, **sem suporte a botas**.
+Continuam pendentes a melhoria de ausências, a validação no ambiente real e
+os testes com webcam/RTSP e o bot do operador. O protótipo pode ser apresentado
+com essas limitações, sem prometer cobertura de botas ou fiscalização automática.
+
+Configuração, métricas por classe, artefatos e pendências estão na
+[revisão para apresentação](PRESENTATION_CHECK.md). As seções abaixo preservam
+o histórico datado das medições anteriores.
+
 ## Capacete, colete e ausências explícitas — 28/09/2026
 
 O modelo ativo passou a ser **`models/ppe/absence.pt`**, SHA256
@@ -132,8 +167,10 @@ O [guia de alertas](ALERTS.md) explica token, Chat ID, ativação e consulta dos
 
 Verificação final em 28/09/2026: **504 testes passaram em 27,24 s**;
 `pip check`, `compileall src scripts tests` e `git diff --check` sem erros.
-O novo modelo ainda não tem export quantizado validado; os resultados INT8
-abaixo pertencem exclusivamente ao experimento anterior.
+Naquela data, o novo modelo ainda não tinha export quantizado validado; os
+resultados INT8 abaixo pertencem exclusivamente ao experimento anterior.
+Em 29/09, foram validados os exports OpenVINO **FP32**, conforme a revisão acima;
+a quantização INT8 do modelo novo continua pendente.
 
 ## Núcleo do TCC: treino e detecção real — 23/09/2026
 

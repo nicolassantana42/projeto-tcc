@@ -36,7 +36,7 @@ publica o modelo em
 [baskarmother/yolov8-ppe-construction](https://huggingface.co/baskarmother/yolov8-ppe-construction).
 Sua documentação declara 17 classes, incluindo `hardhat`, `no-hardhat`,
 `safety vest`, `no-safety vest` e `person`, e treinamento baseado em YOLOv8n.
-O SafeGuard normaliza os nomes para o vocabulário da cascata.
+A aplicação normaliza os nomes para o vocabulário da cascata.
 
 O baseline não foi treinado pelos autores do TCC. Ele permite estudar erros
 reais e exercitar o pipeline; não sustenta o mAP 0,841 citado no artigo nem
@@ -46,8 +46,8 @@ com YOLOv5. Consulte a [matriz de aderência](TCC_ALIGNMENT.md).
 Após preparar os dados e produzir os pesos conforme a seção de treinamento:
 
 ```bash
-python -m safeguard detect --source data/minha-imagem.jpg --snapshot reports/imagem-anotada.jpg
-python -m safeguard detect --source data/meu-video.mp4 --show --max-frames 1000 --output runs/detection/video.jsonl
+python -m epi_monitor detect --source data/minha-imagem.jpg --snapshot reports/imagem-anotada.jpg
+python -m epi_monitor detect --source data/meu-video.mp4 --show --max-frames 1000 --output runs/detection/video.jsonl
 ```
 
 Substitua os caminhos pelos seus arquivos. `--source 0` acessa a webcam do
@@ -72,7 +72,7 @@ classe `no_vest`; portanto, esse dataset não mede diretamente ausência de
 colete. Preserve a origem, licença e atribuição dos dados na versão usada.
 
 ```bash
-python -m safeguard audit-data --data data/ppe-absence.yaml --require-test --output runs/ppe-absence/audit-original-final.json
+python -m epi_monitor audit-data --data data/ppe-absence.yaml --require-test --output runs/ppe-absence/audit-original-final.json
 ```
 
 A auditoria verifica decodificação das imagens, formato/IDs/limites dos
@@ -85,7 +85,7 @@ quando a ausência foi confirmada como imagem sem objetos anotáveis.
 ## Avaliar a cascata completa
 
 ```bash
-python -m safeguard evaluate-cascade --ppe-model models/ppe/absence.pt --data data/ppe-absence.yaml --split val --imgsz 640 --confidence 0.4 --iou 0.45 --match-iou 0.5 --output runs/ppe-absence/cascade-val.json
+python -m epi_monitor evaluate-cascade --ppe-model models/ppe/absence.pt --data data/ppe-absence.yaml --split val --imgsz 640 --confidence 0.4 --iou 0.45 --match-iou 0.5 --output runs/ppe-absence/cascade-val.json
 ```
 
 Esse comando mede as **caixas finais dos dois estágios**, com pareamento
@@ -115,9 +115,9 @@ temporal. Essas medidas exigem anotações específicas e revisão humana.
 python scripts/prepare_absence_data.py --workers 4
 python scripts/prepare_absence_model.py
 python scripts/prepare_absence_transfer.py
-python -m safeguard train --model models/ppe/absence-base.pt --data data/ppe-absence-transfer.yaml --epochs 10 --imgsz 416 --batch 8 --workers 0 --seed 42 --device cpu --freeze 10 --project runs/train --name ppe_absence
-python -m safeguard validate --model runs/train/ppe_absence/weights/best.pt --data data/ppe-absence-transfer.yaml --split val --imgsz 640 --device cpu --name ppe_absence_val
-python -m safeguard evaluate-cascade --ppe-model runs/train/ppe_absence/weights/best.pt --data data/ppe-absence.yaml --split val --imgsz 640 --confidence 0.4 --iou 0.45 --match-iou 0.5 --device cpu --output runs/ppe-absence/trained-val.json
+python -m epi_monitor train --model models/ppe/absence-base.pt --data data/ppe-absence-transfer.yaml --epochs 10 --imgsz 416 --batch 8 --workers 0 --seed 42 --device cpu --freeze 10 --project runs/train --name ppe_absence
+python -m epi_monitor validate --model runs/train/ppe_absence/weights/best.pt --data data/ppe-absence-transfer.yaml --split val --imgsz 640 --device cpu --name ppe_absence_val
+python -m epi_monitor evaluate-cascade --ppe-model runs/train/ppe_absence/weights/best.pt --data data/ppe-absence.yaml --split val --imgsz 640 --confidence 0.4 --iou 0.45 --match-iou 0.5 --device cpu --output runs/ppe-absence/trained-val.json
 ```
 
 Escolha os pesos e limiares na validação; depois avalie o teste reservado
@@ -131,7 +131,7 @@ Depois de revisar a validação, publique os pesos no caminho padrão:
 
 ```bash
 python scripts/promote_absence_model.py --run-dir runs/train/ppe_absence
-python -m safeguard detect --source data/minha-imagem.jpg --ppe-model models/ppe/absence.pt --show
+python -m epi_monitor detect --source data/minha-imagem.jpg --ppe-model models/ppe/absence.pt --show
 ```
 
 A promoção verifica SHA-256, nomes/IDs do checkpoint, classes de presença e
@@ -146,10 +146,10 @@ Para reproduzir o primeiro experimento local, em um clone novo:
 
 ```bash
 python scripts/prepare_ppe.py --dataset
-python -m safeguard audit-data --data data/construction-ppe.yaml --require-test --output runs/dataset-audit.json
-python -m safeguard train --model models/yolo11n.pt --data data/construction-ppe.yaml --epochs 10 --imgsz 416 --batch 8 --device cpu --name ppe_tcc
-python -m safeguard validate --model runs/train/ppe_tcc/weights/best.pt --data data/construction-ppe.yaml --split val --imgsz 416 --name ppe_tcc_val
-python -m safeguard evaluate-cascade --ppe-model runs/train/ppe_tcc/weights/best.pt --data data/construction-ppe.yaml --split test --imgsz 640 --output runs/ppe_tcc-cascade-test.json
+python -m epi_monitor audit-data --data data/construction-ppe.yaml --require-test --output runs/dataset-audit.json
+python -m epi_monitor train --model models/yolo11n.pt --data data/construction-ppe.yaml --epochs 10 --imgsz 416 --batch 8 --device cpu --name ppe_tcc
+python -m epi_monitor validate --model runs/train/ppe_tcc/weights/best.pt --data data/construction-ppe.yaml --split val --imgsz 416 --name ppe_tcc_val
+python -m epi_monitor evaluate-cascade --ppe-model runs/train/ppe_tcc/weights/best.pt --data data/construction-ppe.yaml --split test --imgsz 640 --output runs/ppe_tcc-cascade-test.json
 ```
 
 O treino usa os 1.132 exemplos de treino e 143 de validação do dataset
@@ -168,7 +168,7 @@ Depois de revisar as métricas e evidências, a inferência aceita os pesos no
 próprio diretório do treinamento:
 
 ```bash
-python -m safeguard detect --source data/minha-imagem.jpg --ppe-model runs/train/ppe_tcc/weights/best.pt --show
+python -m epi_monitor detect --source data/minha-imagem.jpg --ppe-model runs/train/ppe_tcc/weights/best.pt --show
 ```
 
 Esses pesos históricos não devem substituir `absence.pt`: sua taxonomia não
@@ -191,10 +191,10 @@ dados públicos separadamente. Os dados coletados in loco ainda precisam ser
 produzidos e anotados. O YAML de exemplo é apenas um esquema, não um dataset.
 
 ```bash
-python -m safeguard download --model yolo11n.pt
-python -m safeguard train --model models/yolo11n.pt --data data/ppe.yaml --epochs 100 --batch 8 --name yolo11n
-python -m safeguard download --model yolov8n.pt
-python -m safeguard train --model models/yolov8n.pt --data data/ppe.yaml --epochs 100 --batch 8 --name yolov8n
+python -m epi_monitor download --model yolo11n.pt
+python -m epi_monitor train --model models/yolo11n.pt --data data/ppe.yaml --epochs 100 --batch 8 --name yolo11n
+python -m epi_monitor download --model yolov8n.pt
+python -m epi_monitor train --model models/yolov8n.pt --data data/ppe.yaml --epochs 100 --batch 8 --name yolov8n
 ```
 
 Saídas: `runs/train/<nome>/weights/best.pt`, `last.pt`, `training.json`,
@@ -219,9 +219,9 @@ diretamente com aquele YAML**. Use o mapeamento correspondente ao checkpoint.
 limitações descritas acima.
 
 ```bash
-python -m safeguard validate --model runs/train/yolo11n/weights/best.pt --data data/ppe.yaml --split val --name yolo11n
-python -m safeguard validate --model runs/train/yolov8n/weights/best.pt --data data/ppe.yaml --split val --name yolov8n
-python -m safeguard validate --model models/ppe/absence.pt --data data/ppe-absence-transfer.yaml --split val --imgsz 640 --name absence_val
+python -m epi_monitor validate --model runs/train/yolo11n/weights/best.pt --data data/ppe.yaml --split val --name yolo11n
+python -m epi_monitor validate --model runs/train/yolov8n/weights/best.pt --data data/ppe.yaml --split val --name yolov8n
+python -m epi_monitor validate --model models/ppe/absence.pt --data data/ppe-absence-transfer.yaml --split val --imgsz 640 --name absence_val
 ```
 
 `plots=True` gera matriz de confusão, PR/F1/precision/recall e exemplos
@@ -247,13 +247,17 @@ ONNX FP32 é serialização para outro runtime; não é quantização INT8.
 
 ```bash
 python -m pip install -e ".[onnx]"
-python -m safeguard export --model models/ppe/absence.pt --format onnx --precision fp32 --imgsz 640
-python -m safeguard detect --ppe-model models/ppe/absence.onnx --source data/demo.mp4 --max-frames 100
+python -m epi_monitor export --model models/ppe/absence.pt --format onnx --precision fp32 --imgsz 640
+python -m epi_monitor detect --ppe-model models/ppe/absence.onnx --source data/demo.mp4 --max-frames 100
 ```
 
-O `absence.pt` promovido é PyTorch; seus exports precisam ser gerados e
-avaliados separadamente. O INT8 já existente de `best.pt` pertence ao
-experimento histórico e não serve como versão quantizada de `absence.pt`.
+O `absence.pt` promovido é PyTorch. Nesta instalação, os exports OpenVINO
+**FP32 em 640** de pessoas e EPI foram preparados e reavaliados em 29/09;
+a interface usa esse perfil automaticamente em CPU quando disponível.
+Veja [configuração, reprodução e medições](PRESENTATION_CHECK.md).
+Em um clone novo, os exports precisam ser gerados e avaliados separadamente.
+O INT8 já existente de `best.pt` pertence ao experimento histórico e não serve
+como versão quantizada de `absence.pt`.
 
 Para preparar uma nova calibração INT8, crie
 `data/ppe-absence-calibration.yaml` com o conteúdo abaixo. A entrada `val`
@@ -271,8 +275,8 @@ OpenVINO INT8 em CPU, após criar essa configuração:
 
 ```bash
 python -m pip install -e ".[openvino]"
-python -m safeguard export --model models/ppe/absence.pt --format openvino --precision int8 --data data/ppe-absence-calibration.yaml --fraction 1 --imgsz 640 --device cpu
-python -m safeguard validate --model models/ppe/absence_int8_openvino_model --data data/ppe-absence-transfer.yaml --split val --imgsz 640 --name absence_openvino_int8
+python -m epi_monitor export --model models/ppe/absence.pt --format openvino --precision int8 --data data/ppe-absence-calibration.yaml --fraction 1 --imgsz 640 --device cpu
+python -m epi_monitor validate --model models/ppe/absence_int8_openvino_model --data data/ppe-absence-transfer.yaml --split val --imgsz 640 --name absence_openvino_int8
 ```
 
 TensorRT deve ser instalado no ambiente NVIDIA com CUDA/driver compatíveis.
@@ -280,8 +284,8 @@ O extra `.[tensorrt]` declara dependências Python, mas não instala driver/CUDA
 Após preparar esse ambiente:
 
 ```bash
-python -m safeguard export --model models/ppe/absence.pt --format engine --precision fp16 --device cuda:0
-python -m safeguard export --model models/ppe/absence.pt --format engine --precision int8 --data data/ppe-absence-calibration.yaml --device cuda:0
+python -m epi_monitor export --model models/ppe/absence.pt --format engine --precision fp16 --device cuda:0
+python -m epi_monitor export --model models/ppe/absence.pt --format engine --precision int8 --data data/ppe-absence-calibration.yaml --device cuda:0
 ```
 
 Cada exportação grava `<artefato>.export.json` com precisão/configuração. O
@@ -306,11 +310,23 @@ INT8 sem dataset e ONNX INT8, que não faz parte desta implementação.
 
 ## Benchmark reproduzível
 
+O dashboard usa `runner.postScriptGC = false` em `.streamlit/config.toml`.
+Na versão fixada do Streamlit, a configuração padrão força `gc.collect(2)`
+ao terminar cada fragmento, incluindo cada análise de vídeo. Desativar essa
+coleta completa por fragmento reduziu o custo da interface no teste local;
+o coletor automático do Python continua ativo. Não há pausa adicional após
+a inferência: seu tempo já conta no limite de análises selecionado.
+O histórico mantém até 300 registros sem guardar todos os frames, e a captura
+é liberada ao parar ou por inatividade. Uma sessão longa ainda precisa de
+avaliação de memória. As medições da interface e seus limites estão em
+[PRESENTATION_CHECK.md](PRESENTATION_CHECK.md); não confunda FPS da interface
+com o benchmark abaixo, que não usa Streamlit.
+
 ```bash
-python -m safeguard benchmark --model models/ppe/absence.pt --source data/demo.mp4 --frames 100 --warmup 10 --output runs/benchmark-absence-pt.json
-python -m safeguard benchmark --model models/ppe/absence.onnx --source data/demo.mp4 --frames 100 --warmup 10 --output runs/benchmark-absence-onnx.json
-python -m safeguard benchmark --model models/yolo11n.pt --ppe-model models/ppe/absence.pt --source data/demo.mp4 --frames 100 --warmup 10 --output runs/benchmark-cascade-absence-pt.json
-python -m safeguard benchmark --model models/yolo11n.pt --ppe-model models/ppe/absence_int8_openvino_model --source data/demo.mp4 --frames 100 --warmup 10 --output runs/benchmark-cascade-absence-int8.json
+python -m epi_monitor benchmark --model models/ppe/absence.pt --source data/demo.mp4 --frames 100 --warmup 10 --output runs/benchmark-absence-pt.json
+python -m epi_monitor benchmark --model models/ppe/absence.onnx --source data/demo.mp4 --frames 100 --warmup 10 --output runs/benchmark-absence-onnx.json
+python -m epi_monitor benchmark --model models/yolo11n.pt --ppe-model models/ppe/absence.pt --source data/demo.mp4 --frames 100 --warmup 10 --output runs/benchmark-cascade-absence-pt.json
+python -m epi_monitor benchmark --model models/yolo11n.pt --ppe-model models/ppe/absence_int8_openvino_model --source data/demo.mp4 --frames 100 --warmup 10 --output runs/benchmark-cascade-absence-int8.json
 ```
 
 O primeiro frame é usado para warmup; os próximos são medidos. Meça o mesmo

@@ -1,4 +1,4 @@
-"""SafeGuard: captura, inferência e apresentação desacopladas."""
+"""Detecção de EPIs: captura, inferência e apresentação desacopladas."""
 
 import os
 from pathlib import Path

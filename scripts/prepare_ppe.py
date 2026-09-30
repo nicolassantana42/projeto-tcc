@@ -256,7 +256,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.dataset:
         data = report["dataset"]
         print(f"Dataset verificado: {data['directory']} ({data['extracted']} arquivos extraídos; {data['reused']} reutilizados).")
-        print("Audite antes de treinar: python -m safeguard audit-data --data data/construction-ppe.yaml --require-test")
+        print("Audite antes de treinar: python -m epi_monitor audit-data --data data/construction-ppe.yaml --require-test")
     return 0
 
 

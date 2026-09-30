@@ -10,7 +10,7 @@ from PIL import Image
 import pytest
 import yaml
 
-from safeguard.dataset_audit import DatasetAuditError, audit_dataset, main
+from epi_monitor.dataset_audit import DatasetAuditError, audit_dataset, main
 
 
 @pytest.fixture

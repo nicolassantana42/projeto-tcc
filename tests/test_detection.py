@@ -3,11 +3,11 @@
 import numpy as np
 import pytest
 
-from safeguard.detection import (
+from epi_monitor.detection import (
     CascadePipeline, DEFAULT_EQUIPMENT, EquipmentSpec, canonical_label,
     validate_ppe_names,
 )
-from safeguard.types import Detection
+from epi_monitor.types import Detection
 
 
 FRAME = np.zeros((300, 500, 3), dtype=np.uint8)
