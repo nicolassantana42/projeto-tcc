@@ -1,0 +1,742 @@
+{
+  "kind": "historical_model_audit",
+  "date_local": "2026-10-01",
+  "timezone": "America/Sao_Paulo",
+  "scope": "Read-only analysis of local training, data and evaluation artifacts; no new inference or training in this audit. Baseline before experimental boots support.",
+  "sources": {
+    "runs/train/ppe_absence/results.csv": "4b66a5f59d138b55c2c798fca7bcd78e733941765af78e973846ed17cec7f5f2",
+    "runs/train/ppe_absence/training.json": "6892fe1fecc0007b4bf9c833d4bdbf24d3d5e1a0c36025a6af90a7586ed0933e",
+    "runs/train/ppe_absence/args.yaml": "147523ef55e32994388b1b6074537562b5a10d3f2dd26777d1f106c23e62c0f1",
+    "runs/train/ppe_absence/dataset-audit.json": "c66642c7a955b2552b4eb78ee40d5d54a781f3a5ab14e5457a3a6a9a6f36c56b",
+    "runs/train/ppe_tcc/results.csv": "d848a88b998ef0ceda247b087faa4d690e469a78802c1da66e1ecfca91466a61",
+    "runs/train/ppe_tcc/training.json": "d012daaeaf58cf809e5f5a8ba14a5fd9313dc591b7217c5dfa4a32880352911e",
+    "runs/train/ppe_tcc/dataset-audit.json": "bb1d5f12be0bc0462eb99ca5a782dc362aa5a41b1d291e0221ca5ccb67161eb7",
+    "runs/ppe-absence/finetuned-val.json": "d419e6fbe797ce19e3fc197b21cd3b88d8c8c4eab034bd0e1bd32e3a84aa864b",
+    "runs/validate/ppe_tcc_test/validation.json": "ec280dcbb843892667c7f5564b50d1efb8373c72f806894cc79bed2c9d9d5839",
+    "runs/validate/ppe_tcc_int8_test/validation.json": "e9bba49832b0555b4fa307f7a2d70a4db02173127b216b4d986186e01d1955b3",
+    "runs/presentation-review/production-openvino-test.json": "6718441ee6acf7f44734cb2bc9158f34020d278c22ce7c317849a2bab67e6b99"
+  },
+  "datasets": {
+    "ppe_absence": {
+      "summary": {
+        "images": 1206,
+        "valid_images": 1206,
+        "instances": 7724,
+        "background_images": 0,
+        "missing_labels": 0,
+        "errors": 0,
+        "warnings": 15
+      },
+      "splits": {
+        "train": {
+          "images": 997,
+          "class_counts": {
+            "0": {
+              "name": "Hardhat",
+              "images": 938,
+              "instances": 2116
+            },
+            "1": {
+              "name": "Mask",
+              "images": 0,
+              "instances": 0
+            },
+            "2": {
+              "name": "NO-Hardhat",
+              "images": 49,
+              "instances": 94
+            },
+            "3": {
+              "name": "NO-Mask",
+              "images": 0,
+              "instances": 0
+            },
+            "4": {
+              "name": "NO-Safety Vest",
+              "images": 390,
+              "instances": 741
+            },
+            "5": {
+              "name": "Person",
+              "images": 986,
+              "instances": 2362
+            },
+            "6": {
+              "name": "Safety Cone",
+              "images": 0,
+              "instances": 0
+            },
+            "7": {
+              "name": "Safety Vest",
+              "images": 504,
+              "instances": 1073
+            },
+            "8": {
+              "name": "machinery",
+              "images": 0,
+              "instances": 0
+            },
+            "9": {
+              "name": "vehicle",
+              "images": 0,
+              "instances": 0
+            }
+          }
+        },
+        "val": {
+          "images": 119,
+          "class_counts": {
+            "0": {
+              "name": "Hardhat",
+              "images": 117,
+              "instances": 232
+            },
+            "1": {
+              "name": "Mask",
+              "images": 0,
+              "instances": 0
+            },
+            "2": {
+              "name": "NO-Hardhat",
+              "images": 6,
+              "instances": 11
+            },
+            "3": {
+              "name": "NO-Mask",
+              "images": 0,
+              "instances": 0
+            },
+            "4": {
+              "name": "NO-Safety Vest",
+              "images": 52,
+              "instances": 90
+            },
+            "5": {
+              "name": "Person",
+              "images": 115,
+              "instances": 241
+            },
+            "6": {
+              "name": "Safety Cone",
+              "images": 0,
+              "instances": 0
+            },
+            "7": {
+              "name": "Safety Vest",
+              "images": 74,
+              "instances": 141
+            },
+            "8": {
+              "name": "machinery",
+              "images": 0,
+              "instances": 0
+            },
+            "9": {
+              "name": "vehicle",
+              "images": 0,
+              "instances": 0
+            }
+          }
+        },
+        "test": {
+          "images": 90,
+          "class_counts": {
+            "0": {
+              "name": "Hardhat",
+              "images": 82,
+              "instances": 195
+            },
+            "1": {
+              "name": "Mask",
+              "images": 0,
+              "instances": 0
+            },
+            "2": {
+              "name": "NO-Hardhat",
+              "images": 11,
+              "instances": 24
+            },
+            "3": {
+              "name": "NO-Mask",
+              "images": 0,
+              "instances": 0
+            },
+            "4": {
+              "name": "NO-Safety Vest",
+              "images": 31,
+              "instances": 61
+            },
+            "5": {
+              "name": "Person",
+              "images": 88,
+              "instances": 214
+            },
+            "6": {
+              "name": "Safety Cone",
+              "images": 0,
+              "instances": 0
+            },
+            "7": {
+              "name": "Safety Vest",
+              "images": 57,
+              "instances": 129
+            },
+            "8": {
+              "name": "machinery",
+              "images": 0,
+              "instances": 0
+            },
+            "9": {
+              "name": "vehicle",
+              "images": 0,
+              "instances": 0
+            }
+          }
+        }
+      },
+      "exact_leakage_count": 0,
+      "duplicate_groups_count": 0,
+      "train_box_short_side_at416": {
+        "2": {
+          "boxes": 94,
+          "median_px": 27.4625,
+          "less_than16px": 11,
+          "scope": "Approximation from source normalized boxes, before training augmentation."
+        }
+      }
+    },
+    "ppe_tcc": {
+      "summary": {
+        "images": 1416,
+        "valid_images": 1416,
+        "instances": 11521,
+        "background_images": 0,
+        "missing_labels": 0,
+        "errors": 0,
+        "warnings": 0
+      },
+      "splits": {
+        "train": {
+          "images": 1132,
+          "class_counts": {
+            "0": {
+              "name": "helmet",
+              "images": 830,
+              "instances": 1341
+            },
+            "1": {
+              "name": "gloves",
+              "images": 562,
+              "instances": 1146
+            },
+            "2": {
+              "name": "vest",
+              "images": 828,
+              "instances": 1269
+            },
+            "3": {
+              "name": "boots",
+              "images": 530,
+              "instances": 1235
+            },
+            "4": {
+              "name": "goggles",
+              "images": 385,
+              "instances": 419
+            },
+            "5": {
+              "name": "none",
+              "images": 347,
+              "instances": 651
+            },
+            "6": {
+              "name": "Person",
+              "images": 1067,
+              "instances": 1770
+            },
+            "7": {
+              "name": "no_helmet",
+              "images": 232,
+              "instances": 400
+            },
+            "8": {
+              "name": "no_goggle",
+              "images": 216,
+              "instances": 337
+            },
+            "9": {
+              "name": "no_gloves",
+              "images": 190,
+              "instances": 442
+            },
+            "10": {
+              "name": "no_boots",
+              "images": 28,
+              "instances": 88
+            }
+          }
+        },
+        "val": {
+          "images": 143,
+          "class_counts": {
+            "0": {
+              "name": "helmet",
+              "images": 107,
+              "instances": 201
+            },
+            "1": {
+              "name": "gloves",
+              "images": 68,
+              "instances": 136
+            },
+            "2": {
+              "name": "vest",
+              "images": 109,
+              "instances": 171
+            },
+            "3": {
+              "name": "boots",
+              "images": 64,
+              "instances": 151
+            },
+            "4": {
+              "name": "goggles",
+              "images": 44,
+              "instances": 47
+            },
+            "5": {
+              "name": "none",
+              "images": 43,
+              "instances": 81
+            },
+            "6": {
+              "name": "Person",
+              "images": 139,
+              "instances": 239
+            },
+            "7": {
+              "name": "no_helmet",
+              "images": 27,
+              "instances": 45
+            },
+            "8": {
+              "name": "no_goggle",
+              "images": 25,
+              "instances": 41
+            },
+            "9": {
+              "name": "no_gloves",
+              "images": 23,
+              "instances": 56
+            },
+            "10": {
+              "name": "no_boots",
+              "images": 2,
+              "instances": 4
+            }
+          }
+        },
+        "test": {
+          "images": 141,
+          "class_counts": {
+            "0": {
+              "name": "helmet",
+              "images": 110,
+              "instances": 192
+            },
+            "1": {
+              "name": "gloves",
+              "images": 75,
+              "instances": 163
+            },
+            "2": {
+              "name": "vest",
+              "images": 111,
+              "instances": 178
+            },
+            "3": {
+              "name": "boots",
+              "images": 75,
+              "instances": 211
+            },
+            "4": {
+              "name": "goggles",
+              "images": 51,
+              "instances": 52
+            },
+            "5": {
+              "name": "none",
+              "images": 35,
+              "instances": 65
+            },
+            "6": {
+              "name": "Person",
+              "images": 133,
+              "instances": 236
+            },
+            "7": {
+              "name": "no_helmet",
+              "images": 24,
+              "instances": 40
+            },
+            "8": {
+              "name": "no_goggle",
+              "images": 24,
+              "instances": 33
+            },
+            "9": {
+              "name": "no_gloves",
+              "images": 23,
+              "instances": 58
+            },
+            "10": {
+              "name": "no_boots",
+              "images": 6,
+              "instances": 23
+            }
+          }
+        }
+      },
+      "exact_leakage_count": 0,
+      "duplicate_groups_count": 0,
+      "train_box_short_side_at416": {
+        "3": {
+          "boxes": 1235,
+          "median_px": 41.086656000000005,
+          "less_than16px": 51,
+          "scope": "Approximation from source normalized boxes, before training augmentation."
+        },
+        "10": {
+          "boxes": 88,
+          "median_px": 28.431104,
+          "less_than16px": 0,
+          "scope": "Approximation from source normalized boxes, before training augmentation."
+        }
+      }
+    }
+  },
+  "training": {
+    "ppe_absence": {
+      "config": {
+        "model": "models/ppe/absence-base.pt",
+        "data": "C:\\projeto-tcc\\projeto-tcc\\data\\ppe-absence-transfer.yaml",
+        "epochs": 10,
+        "imgsz": 416,
+        "batch": 8,
+        "workers": 0,
+        "seed": 42,
+        "amp": false,
+        "freeze": 10
+      },
+      "epochs_completed": 10,
+      "first_epoch": {
+        "epoch": "1",
+        "time": "170.799",
+        "train/box_loss": "1.59559",
+        "train/cls_loss": "1.08609",
+        "train/dfl_loss": "1.42272",
+        "metrics/precision(B)": "0.87126",
+        "metrics/recall(B)": "0.70125",
+        "metrics/mAP50(B)": "0.77568",
+        "metrics/mAP50-95(B)": "0.43281",
+        "val/box_loss": "1.44175",
+        "val/cls_loss": "0.7741",
+        "val/dfl_loss": "1.34153",
+        "lr/pg0": "0.000236096",
+        "lr/pg1": "0.000236096",
+        "lr/pg2": "0.000236096"
+      },
+      "last_epoch": {
+        "epoch": "10",
+        "time": "2192.51",
+        "train/box_loss": "1.25961",
+        "train/cls_loss": "0.74347",
+        "train/dfl_loss": "1.19507",
+        "metrics/precision(B)": "0.86251",
+        "metrics/recall(B)": "0.77171",
+        "metrics/mAP50(B)": "0.83693",
+        "metrics/mAP50-95(B)": "0.4794",
+        "val/box_loss": "1.35967",
+        "val/cls_loss": "0.70212",
+        "val/dfl_loss": "1.2771",
+        "lr/pg0": "7.7826e-05",
+        "lr/pg1": "7.7826e-05",
+        "lr/pg2": "7.7826e-05"
+      },
+      "best_map50_95_epoch": 10,
+      "best_epoch_is_final": true
+    },
+    "ppe_tcc": {
+      "config": {
+        "model": "models/yolo11n.pt",
+        "data": "C:\\projeto-tcc\\projeto-tcc\\data\\construction-ppe.yaml",
+        "epochs": 10,
+        "imgsz": 416,
+        "batch": 8,
+        "workers": 0,
+        "seed": 42,
+        "amp": false
+      },
+      "epochs_completed": 10,
+      "first_epoch": {
+        "epoch": "1",
+        "time": "220.724",
+        "train/box_loss": "1.88169",
+        "train/cls_loss": "3.50913",
+        "train/dfl_loss": "1.71695",
+        "metrics/precision(B)": "0.78329",
+        "metrics/recall(B)": "0.25271",
+        "metrics/mAP50(B)": "0.2866",
+        "metrics/mAP50-95(B)": "0.14063",
+        "val/box_loss": "1.95545",
+        "val/cls_loss": "2.39465",
+        "val/dfl_loss": "1.70677",
+        "lr/pg0": "0.000220768",
+        "lr/pg1": "0.000220768",
+        "lr/pg2": "0.000220768"
+      },
+      "last_epoch": {
+        "epoch": "10",
+        "time": "4434.17",
+        "train/box_loss": "1.55906",
+        "train/cls_loss": "1.15744",
+        "train/dfl_loss": "1.39262",
+        "metrics/precision(B)": "0.61981",
+        "metrics/recall(B)": "0.52515",
+        "metrics/mAP50(B)": "0.53121",
+        "metrics/mAP50-95(B)": "0.25726",
+        "val/box_loss": "1.69571",
+        "val/cls_loss": "1.18735",
+        "val/dfl_loss": "1.47926",
+        "lr/pg0": "7.2703e-05",
+        "lr/pg1": "7.2703e-05",
+        "lr/pg2": "7.2703e-05"
+      },
+      "best_map50_95_epoch": 10,
+      "best_epoch_is_final": true
+    }
+  },
+  "metrics": {
+    "runs/validate/ppe_tcc_test/validation.json": {
+      "config": {
+        "model": "runs/train/ppe_tcc/weights/best.pt",
+        "data": "C:\\projeto-tcc\\projeto-tcc\\data\\construction-ppe.yaml",
+        "imgsz": 640,
+        "batch": 1,
+        "requested_imgsz": 640,
+        "requested_batch": 1,
+        "split": "test",
+        "confidence": 0.001,
+        "iou": 0.7
+      },
+      "per_class": [
+        {
+          "class_id": 3,
+          "name": "boots",
+          "instances": 211,
+          "evaluated": true,
+          "precision": 0.7808185043722498,
+          "recall": 0.5909306365917446,
+          "mAP50": 0.6934700358887423,
+          "mAP50_95": 0.33784170801722885
+        },
+        {
+          "class_id": 10,
+          "name": "no_boots",
+          "instances": 23,
+          "evaluated": true,
+          "precision": 1.0,
+          "recall": 0.0,
+          "mAP50": 0.015308605797410349,
+          "mAP50_95": 0.0027661333586840864
+        }
+      ]
+    },
+    "runs/validate/ppe_tcc_int8_test/validation.json": {
+      "config": {
+        "model": "models/ppe/best_int8_openvino_model",
+        "data": "C:\\projeto-tcc\\projeto-tcc\\data\\construction-ppe.yaml",
+        "imgsz": 640,
+        "batch": 1,
+        "requested_imgsz": 640,
+        "requested_batch": 1,
+        "split": "test",
+        "confidence": 0.001,
+        "iou": 0.7
+      },
+      "per_class": [
+        {
+          "class_id": 3,
+          "name": "boots",
+          "instances": 211,
+          "evaluated": true,
+          "precision": 0.72381019954932,
+          "recall": 0.6492890995260664,
+          "mAP50": 0.6892438288884624,
+          "mAP50_95": 0.34923178243717656
+        },
+        {
+          "class_id": 10,
+          "name": "no_boots",
+          "instances": 23,
+          "evaluated": true,
+          "precision": 1.0,
+          "recall": 0.0,
+          "mAP50": 0.005870440155172231,
+          "mAP50_95": 0.0015545504707666856
+        }
+      ]
+    },
+    "active_cascade": {
+      "config": {
+        "data": "C:\\projeto-tcc\\projeto-tcc\\data\\ppe-absence.yaml",
+        "split": "test",
+        "confidence": 0.4,
+        "iou": 0.45,
+        "match_iou": 0.5,
+        "max_images": null,
+        "sample_selection": "sorted paths, first N; no shuffle",
+        "error_record_limit": 5000
+      },
+      "per_class": {
+        "person": {
+          "tp": 186,
+          "fp": 44,
+          "fn": 28,
+          "ground_truth": 214,
+          "predictions": 230,
+          "precision": 0.808695652173913,
+          "recall": 0.8691588785046729
+        },
+        "helmet": {
+          "tp": 178,
+          "fp": 30,
+          "fn": 17,
+          "ground_truth": 195,
+          "predictions": 208,
+          "precision": 0.8557692307692307,
+          "recall": 0.9128205128205128
+        },
+        "vest": {
+          "tp": 93,
+          "fp": 15,
+          "fn": 36,
+          "ground_truth": 129,
+          "predictions": 108,
+          "precision": 0.8611111111111112,
+          "recall": 0.7209302325581395
+        },
+        "no_helmet": {
+          "tp": 6,
+          "fp": 3,
+          "fn": 18,
+          "ground_truth": 24,
+          "predictions": 9,
+          "precision": 0.6666666666666666,
+          "recall": 0.25
+        },
+        "no_vest": {
+          "tp": 39,
+          "fp": 17,
+          "fn": 22,
+          "ground_truth": 61,
+          "predictions": 56,
+          "precision": 0.6964285714285714,
+          "recall": 0.639344262295082
+        }
+      }
+    }
+  },
+  "notes": [
+    "Train/val/test boxes from a shared image are not independent scenes.",
+    "Exact content hashes do not establish absence of near-duplicate scenes or external pretraining overlap.",
+    "Current baseline model has no boots outputs.",
+    "Boots historical detector metrics do not measure per-person association or temporal alerts."
+  ],
+  "validation_no_helmet_errors": [
+    {
+      "type": "fn",
+      "image": "ppe_0164_jpg.rf.b1a042a7c9a4bbda26c3088e29eb73f1.jpg",
+      "class_id": 1,
+      "label": "no-helmet",
+      "canonical_class": "no_helmet",
+      "bbox": [
+        133.25,
+        222.24999999999997,
+        157.75,
+        256.75
+      ],
+      "annotation_line": 2
+    },
+    {
+      "type": "fn",
+      "image": "ppe_0164_jpg.rf.b1a042a7c9a4bbda26c3088e29eb73f1.jpg",
+      "class_id": 1,
+      "label": "no-helmet",
+      "canonical_class": "no_helmet",
+      "bbox": [
+        431.25,
+        241.25,
+        460.75,
+        272.75
+      ],
+      "annotation_line": 4
+    },
+    {
+      "type": "fn",
+      "image": "ppe_0164_jpg.rf.b1a042a7c9a4bbda26c3088e29eb73f1.jpg",
+      "class_id": 1,
+      "label": "no-helmet",
+      "canonical_class": "no_helmet",
+      "bbox": [
+        377.75,
+        241.25,
+        405.25,
+        284.75
+      ],
+      "annotation_line": 5
+    },
+    {
+      "type": "fn",
+      "image": "ppe_0164_jpg.rf.b1a042a7c9a4bbda26c3088e29eb73f1.jpg",
+      "class_id": 1,
+      "label": "no-helmet",
+      "canonical_class": "no_helmet",
+      "bbox": [
+        208.75,
+        251.74999999999997,
+        234.24999999999997,
+        286.25
+      ],
+      "annotation_line": 6
+    },
+    {
+      "type": "fn",
+      "image": "ppe_0164_jpg.rf.b1a042a7c9a4bbda26c3088e29eb73f1.jpg",
+      "class_id": 1,
+      "label": "no-helmet",
+      "canonical_class": "no_helmet",
+      "bbox": [
+        393.25,
+        300.5,
+        410.75,
+        333.5
+      ],
+      "annotation_line": 8
+    },
+    {
+      "type": "fn",
+      "image": "ppe_0260_jpg.rf.4ed7ac35f19b27b524b8779e0f1dd31d.jpg",
+      "class_id": 1,
+      "label": "no-helmet",
+      "canonical_class": "no_helmet",
+      "bbox": [
+        411.25,
+        221.5,
+        434.74999999999994,
+        246.5
+      ],
+      "annotation_line": 12
+    }
+  ]
+}

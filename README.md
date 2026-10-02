@@ -1,4 +1,31 @@
-# Detecção de pessoas, capacetes e coletes
+# Detecção de pessoas, capacetes, coletes e botas
+
+## ▶ Como rodar (apresentação)
+
+1. Instale o **Python 3.12** uma única vez: `winget install -e --id Python.Python.3.12`
+2. Dê **dois cliques em `iniciar.bat`** (ou rode `python run.py`).
+   Na primeira vez ele cria a `.venv` e instala tudo; depois abre direto.
+3. No navegador (**http://localhost:8501**): escolha **Imagem**, **Vídeo** ou **Webcam** e clique **▶ Iniciar**.
+
+Cada pessoa aparece com ✅ Detectado / ❌ Ausente / ⚠️ Não detectado para **capacete, colete e bota**.
+Imagens de teste prontas: `data/datasets/images/test/` (ex.: `image536.jpg`, `image611.jpg`).
+
+### Modelo ativo: `models/ppe/epi.pt`
+
+YOLO11n treinado em **Construction-PPE** (10 + 40 épocas, CPU, 480 px; `runs/train/ppe_epi3`). Perfil CPU usa `models/ppe/epi_openvino_model` (FP32, ~8 FPS na cascata nesta máquina).
+
+Teste (141 imagens nunca vistas no treino), mAP50:
+
+| Classe | Modelo anterior (`best.pt`) | **`epi.pt`** | Precisão / Recall |
+|---|---|---|---|
+| Capacete | 0,88 | **0,93** | 0,88 / 0,89 |
+| Colete | 0,86 | **0,86** | 0,78 / 0,85 |
+| Bota | 0,70 | **0,75** | 0,71 / 0,68 |
+
+Limite: o dataset não tem classe "sem colete"; colete não encontrado aparece como ⚠️ Não detectado.
+Retreinar: `python -m epi_monitor train --model models/ppe/best.pt --data data/construction-ppe.yaml --epochs 40 --imgsz 480 --batch 16 --workers 4 --device cpu --name ppe_epi3`
+
+---
 
 Pipeline local para o TCC: **imagem/câmera → YOLO de pessoas → segundo YOLO de EPIs → decisão por pessoa → evidência**. A execução principal é pela CLI; a interface simples serve para visualizar o resultado.
 

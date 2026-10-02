@@ -95,6 +95,38 @@ def test_two_stage_flow_skips_ppe_without_people_and_records_real_outputs(monkey
     assert cv2.imdecode(np.fromfile(snapshot, np.uint8), cv2.IMREAD_COLOR).shape == FRAME.shape
 
 
+def test_optional_boots_model_is_forwarded_and_recorded(monkeypatch, tmp_path):
+    pipeline = install_pipeline(monkeypatch, [[PERSON]])
+    calls = []
+
+    def create(*args, **kwargs):
+        calls.append(kwargs)
+        return pipeline
+
+    monkeypatch.setattr(runner, "create_cascade", create)
+    capture = FakeVideo([0.])
+    monkeypatch.setattr(runner, "open_source", lambda _: capture)
+    report = run_detection(source="clip.mp4", boots_model="models/ppe/boots.pt", output=tmp_path / "frames.jsonl")
+    assert calls == [{"boots_model": "models/ppe/boots.pt"}]
+    assert report["boots_model"] == "models/ppe/boots.pt"
+    assert capture.closed
+
+
+@pytest.mark.parametrize("exported", [False, True])
+def test_auxiliary_boots_weights_are_protected_from_output_overwrite(monkeypatch, tmp_path, exported):
+    model = tmp_path / ("boots_openvino_model" if exported else "boots.pt")
+    if exported:
+        model.mkdir()
+        output = model / "metadata.yaml"
+    else:
+        output = model
+    output.write_bytes(b"original model")
+    monkeypatch.setattr(runner, "create_cascade", lambda *args, **kwargs: pytest.fail("weights loaded before validation"))
+    with pytest.raises(ValueError, match="substituir"):
+        run_detection(source=0, boots_model=str(model), output=output)
+    assert output.read_bytes() == b"original model"
+
+
 def test_video_confirmation_uses_media_time_even_when_inference_is_fast(monkeypatch, tmp_path):
     install_pipeline(monkeypatch, [[PERSON]] * 3)
     capture = FakeVideo([0., 1., 2.])

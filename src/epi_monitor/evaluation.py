@@ -27,7 +27,7 @@ from .config import validate_threshold
 from .detection import canonical_label
 
 
-CANONICAL_CLASSES = ("person", "helmet", "vest", "no_helmet", "no_vest")
+CANONICAL_CLASSES = ("person", "helmet", "vest", "no_helmet", "no_vest", "boots", "no_boots")
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff"}
 MAX_ERROR_RECORDS = 5000
 
@@ -168,7 +168,7 @@ def _latency(values: list[float]) -> dict[str, int | float | None]:
 
 def _runtime_metadata(pipeline: Any) -> dict[str, Any]:
     stages = {}
-    for name in ("person_detector", "ppe_detector", "detector"):
+    for name in ("person_detector", "ppe_detector", "boots_detector", "detector"):
         detector = getattr(pipeline, name, None)
         if detector is None or (name == "detector" and "person_detector" in stages):
             continue
@@ -187,7 +187,7 @@ def _output_path(output: str | Path | None, protected: set[Path], pipeline: Any)
     if output is None:
         return None
     destination = Path(output).expanduser().resolve()
-    for name in ("person_detector", "ppe_detector", "detector"):
+    for name in ("person_detector", "ppe_detector", "boots_detector", "detector"):
         configuration = getattr(getattr(pipeline, name, None), "config", None)
         model_path = getattr(configuration, "model_path", None)
         if model_path:

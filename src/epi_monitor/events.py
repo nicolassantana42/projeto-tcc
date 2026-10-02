@@ -379,7 +379,8 @@ class EventService:
                 if self.policy.trigger == "person":
                     reasons.append(f"Pessoa {index + 1} detectada; detecção observada durante {self.policy.confirmation_seconds:g}s de análise.")
                 else:
-                    labels = ["capacete" if kind == "helmet" else "colete" for kind in missing]
+                    labels = [{"helmet": "capacete", "vest": "colete", "boots": "bota"}.get(kind, kind)
+                              for kind in missing]
                     reasons.append(f"Pessoa {index + 1}: classe explícita de ausência de {' e '.join(labels)} durante {self.policy.confirmation_seconds:g}s observados (revisão visual necessária).")
         self._tracks = updated
         if not reasons or (self._last_event is not None and now - self._last_event < self.policy.cooldown_seconds):

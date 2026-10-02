@@ -172,17 +172,16 @@ def configure_camera(app, *, telegram=False):
 
 def test_initial_screen_explains_capture_and_channels_stay_disabled(dashboard):
     app = dashboard
-    assert app.selectbox(key="source_type").value == "Webcam local"
-    assert [tab.label for tab in app.tabs] == ["Monitoramento", "Ocorrências", "Alertas e integrações"]
-    assert any("As pessoas detectadas aparecem aqui" in info.value for info in app.info)
+    assert app.selectbox(key="source_type").value == "Imagem"
+    assert [tab.label for tab in app.tabs] == ["Monitoramento", "Ocorrências", "Alertas e integrações", "Modelo"]
+    assert any("clique em ▶ Iniciar" in info.value for info in app.info)
     assert app.session_state["runtime"] is None
     assert button(app, "Salvar imagem agora").disabled
     assert button(app, "Enviar teste aos canais ativos").disabled
     assert not app.session_state["telegram_config"].enabled
     assert not app.session_state["email_config"].enabled
     assert element(app, "radio", "Finalidade do modelo").value == "EPI treinado"
-    assert element(app, "text_input", "Caminho do modelo").value == "models/ppe/absence.pt"
-    assert not element(app, "checkbox", "Exibir painel completo").value
+    assert element(app, "text_input", "Caminho do modelo").value == "models/ppe/epi.pt"
     assert app.session_state["alert_settings"]["trigger"] == "ppe"
     assert any("Telegram: desativado" in item.value for item in app.caption)
     assert any("envio real" in item.value for item in app.caption)
@@ -254,6 +253,7 @@ def detected_dashboard(dashboard, monkeypatch):
     monkeypatch.setattr(VideoSource, "close", lambda capture: closed.append(capture.source))
     monkeypatch.setattr(EventService, "process", deterministic_process)
     monkeypatch.setattr(alert_panels, "TelegramSender", FakeTelegramSender)
+    dashboard.selectbox(key="source_type").select("Webcam local").run()
     element(dashboard, "radio", "Finalidade do modelo").set_value("Demo COCO").run()
     yield dashboard, opened, closed, sent
 
@@ -297,7 +297,7 @@ def test_detection_saves_annotated_occurrence_with_location_and_mock_telegram(de
     assert np.std(stored_image[:200]) > 0  # Actual annotation, not the flat input.
     assert json.loads(Path(event["metadata_path"]).read_text(encoding="utf-8"))["id"] == event["id"]
     assert app.session_state["latest_result"].counts == {"person": 1}
-    assert any("Última imagem salva" in success.value for success in app.success)
+    assert any("Ocorrência salva" in success.value for success in app.success)
 
 
 def test_manual_snapshot_keeps_captured_camera_after_settings_change(detected_dashboard):
@@ -474,19 +474,18 @@ def test_vest_status_capabilities_and_telegram_follow_actual_evidence(
     configure_camera(app, telegram=True)
     element(app, "selectbox", "Quando registrar uma ocorrência").select("ppe")
     button(app, "Salvar configurações").click().run()
-    element(app, "checkbox", "Exibir painel completo").set_value(full_panel)
     app.selectbox(key="source_type").select("Imagem").run()
     element(app, "radio", "Abrir imagem").set_value("Caminho no computador").run()
     element(app, "text_input", "Caminho da imagem").set_value(str(image_path))
     button(app, "▶ Iniciar").click().run()
     assert_no_exception(app)
     table = next(item.value for item in app.dataframe if "Capacete" in item.value.columns)
-    assert table.iloc[0]["Capacete"] == "Detectado"
-    expected = {"present": "Detectado", "absent": "Ausência explícita",
-                "uncertain": "Inconclusivo", "unsupported": "Inconclusivo"}[vest_state]
+    assert table.iloc[0]["Capacete"] == "✅ Detectado"
+    expected = {"present": "✅ Detectado", "absent": "❌ Ausente",
+                "uncertain": "⚠️ Não detectado", "unsupported": "⚠️ Não detectado"}[vest_state]
     assert table.iloc[0]["Colete"] == expected
-    warnings = [item.value for item in app.warning]
-    assert any("não tem classe explícita de sem colete" in text for text in warnings) == (vest_state == "unsupported")
+    capabilities = next(item.value for item in app.caption if "Classes de ausência disponíveis" in item.value)
+    assert ("sem colete" not in capabilities) == (vest_state == "unsupported")
     assert app.session_state["active_metadata"]["ppe_model_classes"] == list(names.values())
     assert any("Telegram: ativo para novas ocorrências" in item.value for item in app.caption)
     runtime = app.session_state["runtime"]
@@ -556,7 +555,6 @@ def test_analysis_limit_is_configurable_and_exported_as_target_not_guaranteed_fp
 @pytest.mark.parametrize("full_panel", [False, True])
 def test_preview_reserves_same_viewport_before_and_after_start(dashboard, full_panel):
     app = dashboard
-    element(app, "checkbox", "Exibir painel completo").set_value(full_panel)
     app.selectbox(key="source_type").select("Prévia ilustrativa").run()
     empty = next(item.value for item in app.markdown if 'data-epi-preview="true"' in item.value)
     assert "Aguardando captura" in empty
@@ -568,7 +566,6 @@ def test_preview_reserves_same_viewport_before_and_after_start(dashboard, full_p
     preview = cv2.imdecode(np.frombuffer(app.session_state["latest_preview"], dtype=np.uint8), cv2.IMREAD_COLOR)
     assert preview.shape == (405, 720, 3)
     assert app.session_state["latest_frame"].shape == (540, 960, 3)
-    assert any("Botas não são avaliadas" in item.value for item in app.caption)
 
 
 def test_openvino_profile_uses_cpu_and_keeps_custom_pytorch_paths(dashboard):

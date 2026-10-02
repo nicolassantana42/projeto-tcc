@@ -43,6 +43,7 @@ class EquipmentSpec:
     negative_labels: frozenset[str]
     region_y: tuple[float, float]
     display_name: str
+    max_instances_per_person: int = 1
 
 
 DEFAULT_EQUIPMENT = {
@@ -57,6 +58,14 @@ DEFAULT_EQUIPMENT = {
         (.15, .80), "colete",
     ),
 }
+
+# Boots are opt-in: the active helmet/vest weights do not contain this class.
+BOOT_EQUIPMENT = EquipmentSpec(
+    frozenset({"boot", "boots", "safety boots", "safety boot", "bota", "botas", "bota de seguranca"}),
+    frozenset({"no boots", "no boot", "without boots", "sem bota", "sem botas"}),
+    (.65, 1.08), "bota", max_instances_per_person=2,
+)
+KNOWN_EQUIPMENT = {**DEFAULT_EQUIPMENT, "boots": BOOT_EQUIPMENT}
 
 
 @dataclass(frozen=True)
@@ -86,6 +95,8 @@ def _vocabulary(specs: Mapping[str, EquipmentSpec]) -> dict[str, tuple[str, bool
             raise ValueError("Identificador de EPI inválido; use nomes como helmet ou vest.")
         if not spec.positive_labels or not spec.display_name:
             raise ValueError("Cada EPI precisa de classes positivas e nome de apresentação.")
+        if type(spec.max_instances_per_person) is not int or spec.max_instances_per_person < 1:
+            raise ValueError("O número de instâncias por pessoa deve ser inteiro positivo.")
         lower, upper = spec.region_y
         if not all(math.isfinite(value) for value in (lower, upper)) or not -.5 <= lower < upper <= 1.5:
             raise ValueError("Região relativa do EPI inválida.")
@@ -110,7 +121,7 @@ def canonical_label(label: str, equipment_specs: Mapping[str, EquipmentSpec] | N
     normalized = normalize_label(label)
     if normalized in PERSON_ALIASES:
         return "person"
-    match = _vocabulary(DEFAULT_EQUIPMENT if equipment_specs is None else equipment_specs).get(normalized)
+    match = _vocabulary(KNOWN_EQUIPMENT if equipment_specs is None else equipment_specs).get(normalized)
     if match is None:
         return None
     return match[0] if match[1] else f"no_{match[0]}"
@@ -194,6 +205,13 @@ def assess_person_ppe(people: list[Detection], equipment: list[Detection], frame
             continue
         kind, positive = match
         candidates = [index for index, person in enumerate(people) if _candidate(gear, person, specs[kind])]
+        if len(candidates) > 1:
+            # Side-by-side people overlap; keep a box only when one person is clearly closer.
+            center = (gear.bbox[0] + gear.bbox[2]) / 2
+            distance = sorted((abs(center - (people[i].bbox[0] + people[i].bbox[2]) / 2)
+                               / max(1., people[i].bbox[2] - people[i].bbox[0]), i) for i in candidates)
+            if distance[0][0] < .5 * distance[1][0]:
+                candidates = [distance[0][1]]
         if len(candidates) == 1:
             slots[candidates[0], kind, positive].append(gear)
         elif len(candidates) > 1:
@@ -205,9 +223,14 @@ def assess_person_ppe(people: list[Detection], equipment: list[Detection], frame
         for kind in required_ppe:
             spec = specs[kind]
             positives, negatives = slots[index, kind, True], slots[index, kind, False]
-            reason = _visibility_reason(person, [other for idx, other in enumerate(people) if idx != index],
-                                         spec, frame_shape, minimum_person_height)
-            if reason is None and ((index, kind) in ambiguous or len(positives) > 1 or len(negatives) > 1):
+            # Partial visibility only prevents concluding absence; equipment that
+            # was actually seen and assigned to this person still counts.
+            reason = None if positives and not negatives else _visibility_reason(
+                person, [other for idx, other in enumerate(people) if idx != index],
+                spec, frame_shape, minimum_person_height)
+            # Boxes assigned only to this person outweigh a neighbor's shared box;
+            # extra or duplicate boxes of one polarity still point the same way.
+            if reason is None and (index, kind) in ambiguous and not (positives or negatives):
                 reason = "associação ambígua entre pessoa e EPI"
             if reason is None and positives and negatives:
                 reason = "classes positivas e negativas conflitantes"
@@ -236,10 +259,19 @@ class CascadePipeline:
     def __init__(self, person_detector: Detector, ppe_detector: Detector,
                  required_ppe: tuple[str, ...] = ("helmet", "vest"), *,
                  equipment_specs: Mapping[str, EquipmentSpec] | None = None,
-                 minimum_person_height: float = 80.):
-        self.equipment_specs = dict(DEFAULT_EQUIPMENT if equipment_specs is None else equipment_specs)
-        self.required_ppe = tuple(required_ppe)
-        validate_ppe_names(ppe_detector.names, self.required_ppe, self.equipment_specs)
+                 minimum_person_height: float = 80., boots_detector: Detector | None = None):
+        # A single PPE model that already knows boots evaluates them automatically.
+        if boots_detector is None and equipment_specs is None and "boots" not in required_ppe and any(
+                _vocabulary(KNOWN_EQUIPMENT).get(normalize_label(name)) == ("boots", True)
+                for name in ppe_detector.names.values()):
+            required_ppe = tuple(required_ppe) + ("boots",)
+        defaults = KNOWN_EQUIPMENT if boots_detector is not None or "boots" in required_ppe else DEFAULT_EQUIPMENT
+        self.equipment_specs = dict(defaults if equipment_specs is None else equipment_specs)
+        self.required_ppe = tuple(required_ppe) + (("boots",) if boots_detector is not None and "boots" not in required_ppe else ())
+        primary_required = tuple(kind for kind in self.required_ppe if boots_detector is None or kind != "boots")
+        validate_ppe_names(ppe_detector.names, primary_required, self.equipment_specs)
+        if boots_detector is not None:
+            validate_ppe_names(boots_detector.names, ("boots",), self.equipment_specs)
         if not any(normalize_label(label) in PERSON_ALIASES for label in person_detector.names.values()):
             raise ValueError("O primeiro modelo precisa de uma classe de pessoa.")
         if isinstance(minimum_person_height, bool) or not math.isfinite(minimum_person_height) or minimum_person_height <= 0:
@@ -247,6 +279,7 @@ class CascadePipeline:
         self.minimum_person_height = minimum_person_height
         self.person_detector = self.detector = person_detector
         self.ppe_detector = ppe_detector
+        self.boots_detector = boots_detector
         self.frame_index = 0
         self._vocabulary = _vocabulary(self.equipment_specs)
         labels = ["person", *self.equipment_specs, *(f"no_{kind}" for kind in self.equipment_specs)]
@@ -264,16 +297,26 @@ class CascadePipeline:
                          if normalize_label(item.label) in PERSON_ALIASES), key=lambda item: item.bbox)
         equipment = []
         ppe_ms = 0.
+        boots_ms = 0.
         if people:
             inference_started = perf_counter()
             second = self.ppe_detector.predict(prepared, confidence=confidence, iou=iou)
             ppe_ms = (perf_counter() - inference_started) * 1000
             for item in second:
                 match = self._vocabulary.get(normalize_label(item.label))
-                if match is not None:
+                if match is not None and (self.boots_detector is None or match[0] != "boots"):
                     kind, positive = match
                     label = kind if positive else f"no_{kind}"
                     equipment.append(Detection(self._class_ids[label], label, item.confidence, item.bbox))
+            if self.boots_detector is not None:
+                inference_started = perf_counter()
+                footwear = self.boots_detector.predict(prepared, confidence=confidence, iou=iou)
+                boots_ms = (perf_counter() - inference_started) * 1000
+                for item in footwear:
+                    match = self._vocabulary.get(normalize_label(item.label))
+                    if match is not None and match[0] == "boots":
+                        label = "boots" if match[1] else "no_boots"
+                        equipment.append(Detection(self._class_ids[label], label, item.confidence, item.bbox))
         assessments = assess_person_ppe(people, equipment, prepared.shape, required_ppe=self.required_ppe,
                                         equipment_specs=self.equipment_specs,
                                         minimum_person_height=self.minimum_person_height)
@@ -284,6 +327,8 @@ class CascadePipeline:
         self.frame_index += 1
         return FrameResult(frame=frame, detections=detections,
                            counts=dict(Counter(item.label for item in detections)), alerts=alerts,
-                           inference_ms=person_ms + ppe_ms, pipeline_ms=(perf_counter() - started) * 1000,
+                           inference_ms=person_ms + ppe_ms + boots_ms, pipeline_ms=(perf_counter() - started) * 1000,
                            frame_index=self.frame_index, assessments=assessments,
-                           stage_timings_ms={"person": person_ms, "ppe": ppe_ms}, ppe_executed=bool(people))
+                           stage_timings_ms={"person": person_ms, "ppe": ppe_ms,
+                                             **({"boots": boots_ms} if self.boots_detector is not None else {})},
+                           ppe_executed=bool(people))

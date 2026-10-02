@@ -34,7 +34,7 @@ def _check_existing(path: Path, expected: bytes | str) -> None:
 
 
 def promote(run_dir: Path | None = None, *, root: Path = ROOT) -> dict:
-    from epi_monitor.config import DEFAULT_PPE_MODEL
+    DEFAULT_PPE_MODEL = "models/ppe/absence.pt"  # own slot; the active default is epi.pt
     from epi_monitor.detection import canonical_label
 
     root = Path(root).absolute()

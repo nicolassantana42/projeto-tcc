@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -25,6 +26,11 @@ def main() -> int:
     stamp = environment / ".epi-installed"
     digest = hashlib.sha256(b"".join((ROOT / p).read_bytes() for p in ("requirements.txt", "pyproject.toml"))).hexdigest()
     try:
+        # A venv copied between machines points to a missing base interpreter.
+        if python.exists() and subprocess.run([str(python), "-c", ""], stdout=subprocess.DEVNULL,
+                                              stderr=subprocess.DEVNULL).returncode:
+            print("Ambiente .venv inválido; recriando…", flush=True)
+            shutil.rmtree(environment)
         if not python.exists():
             print("Criando ambiente Python isolado…", flush=True)
             venv.EnvBuilder(with_pip=True).create(environment)

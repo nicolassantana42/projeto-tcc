@@ -144,6 +144,7 @@ def render_alert_settings(running: bool):
     telegram, email = st.session_state.telegram_config, st.session_state.email_config
     st.subheader("Câmera, evidências e integrações")
     if notice := st.session_state.pop("alert_settings_notice", None):
+        st.toast("Configurações salvas.", icon=":material/check_circle:")
         st.success(notice)
     st.caption("Preencha, salve e inicie o monitoramento. Tokens e senhas ficam somente nesta sessão, "
                "ou podem ser carregados do arquivo local .streamlit/secrets.toml.")
@@ -251,48 +252,103 @@ def _send_test():
         st.error("Não foi possível preparar o teste. Verifique os campos e a permissão de escrita em reports.")
 
 
+KIND_LABELS = {"ppe": ("Sem EPI", "unsafe"), "person": ("Pessoa", "info"), "manual": ("Manual", "neutral")}
+DELIVERY_LABELS = {"pending": "Na fila", "accepted": "Aceito pelo provedor", "failed": "Falhou", "queue_full": "Fila cheia"}
+PAGE_SIZE = 10
+
+
+def _local_time(event: dict) -> str:
+    try:
+        return datetime.fromisoformat(event["timestamp_utc"]).astimezone().strftime("%d/%m/%Y %H:%M:%S")
+    except (ValueError, KeyError):
+        return str(event.get("timestamp_utc", ""))
+
+
 def render_occurrences():
-    st.subheader("Imagens salvas e histórico")
-    st.code(str(reports_root() / "occurrences"), language=None)
-    st.caption("Cada ocorrência contém snapshot.jpg e event.json com câmera, local, horário, motivo e status de envio. "
-               "O arquivo fica no computador que executa o servidor, inclusive depois de fechar a página.")
-    st.button("Atualizar histórico", key="refresh_occurrences")
+    from epi_monitor.ui import theme
+
+    head, refresh = st.columns([4, 1.4], vertical_alignment="bottom")
+    head.markdown(theme.card_title("Imagens salvas e histórico", "folder"), unsafe_allow_html=True)
+    refresh.button("Atualizar histórico", key="refresh_occurrences", icon=":material/refresh:", width="stretch")
+    st.caption(f"Pasta local: {reports_root() / 'occurrences'} · cada ocorrência tem snapshot.jpg e event.json.")
     try:
         store = event_store()
-        events = store.list_events(limit=50)
+        events = store.list_events(limit=200)
     except OSError:
         st.error("Não foi possível ler o histórico. Verifique a pasta reports e as permissões de acesso.")
         return
     if not events:
-        st.info("Nenhuma ocorrência salva. Inicie uma fonte real e ative a gravação automática, ou use 'Salvar imagem agora' no monitoramento.")
+        st.markdown(theme.empty_state(
+            "Nenhuma ocorrência ainda",
+            "Quando alguém aparecer sem EPI, a foto e os dados ficam registrados aqui. "
+            "Você também pode usar 'Salvar imagem agora' no monitoramento.", "folder",
+            ("Inicie uma fonte", "Aguarde um alerta", "Revise aqui")), unsafe_allow_html=True)
         return
-    st.caption(f"Exibindo as {len(events)} ocorrências mais recentes.")
-    labels = {}
-    for event in events:
-        try:
-            timestamp = datetime.fromisoformat(event["timestamp_utc"]).astimezone().strftime("%d/%m/%Y %H:%M:%S %Z")
-        except (ValueError, KeyError):
-            timestamp = str(event.get("timestamp_utc", ""))
-        labels[event["id"]] = f"{timestamp} · {event.get('camera_name', '')} · {event.get('location', '')} · {event['id'][:8]}"
-    st.caption("Somente a foto selecionada é carregada. Use Atualizar histórico para consultar novas imagens e o status dos envios.")
+
+    search_col, kind_col = st.columns([3, 1.3])
+    query = search_col.text_input("Buscar", placeholder="Câmera, local, motivo ou ID", key="occurrence_search",
+                                  label_visibility="collapsed")
+    kinds = kind_col.multiselect("Tipo", list(KIND_LABELS), format_func=lambda k: KIND_LABELS[k][0],
+                                 key="occurrence_kinds", placeholder="Todos os tipos", label_visibility="collapsed")
+    needle = query.strip().lower()
+    filtered = [event for event in events
+                if (not kinds or event.get("kind") in kinds)
+                and (not needle or needle in " ".join(str(event.get(field, "")) for field in
+                                                      ("camera_name", "location", "id", "reasons")).lower())]
+    if not filtered:
+        st.markdown(theme.empty_state("Nada encontrado", "Nenhuma ocorrência corresponde à busca. "
+                                      "Tente outro termo ou limpe os filtros.", "scan"), unsafe_allow_html=True)
+        return
+    pages = max(1, -(-len(filtered) // PAGE_SIZE))
+    page = st.session_state.get("occurrence_page", 1)
+    page = min(max(1, page), pages)
+    rows = filtered[(page - 1) * PAGE_SIZE: page * PAGE_SIZE]
+    st.dataframe([{
+        "Data e hora": _local_time(event),
+        "Tipo": KIND_LABELS.get(event.get("kind"), (str(event.get("kind")), ""))[0],
+        "Câmera": event.get("camera_name", ""),
+        "Local": event.get("location", ""),
+        "Pessoas": event.get("counts", {}).get("person", 0),
+        "Envios": ", ".join(f"{channel}: {DELIVERY_LABELS.get(item.get('status'), item.get('status'))}"
+                            for channel, item in event.get("deliveries", {}).items()) or "Somente local",
+        "ID": event["id"][:8],
+    } for event in rows], hide_index=True, width="stretch")
+    info, prev_col, next_col = st.columns([4, 1, 1], vertical_alignment="center")
+    info.caption(f"{len(filtered)} ocorrência(s) · página {page} de {pages}")
+    if prev_col.button("‹ Anterior", key="occurrence_prev", disabled=page <= 1, width="stretch"):
+        st.session_state.occurrence_page = page - 1
+        st.rerun(scope="fragment")
+    if next_col.button("Próxima ›", key="occurrence_next", disabled=page >= pages, width="stretch"):
+        st.session_state.occurrence_page = page + 1
+        st.rerun(scope="fragment")
+
+    labels = {event["id"]: f"{_local_time(event)} · {event.get('camera_name', '')} · {event['id'][:8]}" for event in filtered}
     selected = st.selectbox("Ocorrência", list(labels), format_func=labels.get, key="selected_occurrence")
-    event = next(item for item in events if item["id"] == selected)
-    st.write(" · ".join(event.get("reasons", [])))
-    st.caption(f"ID: {event['id']} · Tipo: {event.get('kind')} · Modo: {event.get('model_mode')}")
-    snapshot = Path(event["snapshot_path"])
-    try:
-        content = snapshot.read_bytes()
-        st.image(content, width="stretch")
-        st.download_button("Baixar imagem JPG", content, file_name=f"{event['id']}.jpg", mime="image/jpeg", key=f"photo_{event['id']}")
+    event = next(item for item in filtered if item["id"] == selected)
+    image_col, detail_col = st.columns([1.6, 1], gap="large")
+    with image_col:
+        try:
+            content = Path(event["snapshot_path"]).read_bytes()
+            st.image(content, width="stretch")
+        except OSError:
+            content = None
+            st.warning("A imagem foi removida ou está indisponível no disco.")
+    with detail_col, st.container(border=True):
+        label, tone = KIND_LABELS.get(event.get("kind"), (str(event.get("kind")), "neutral"))
+        st.markdown(theme.card_title("Detalhes", "clipboard", theme.badge(label, tone)), unsafe_allow_html=True)
+        st.markdown(f"**{event.get('camera_name', '')}** · {event.get('location', '')}  \n{_local_time(event)}")
+        st.write(" · ".join(event.get("reasons", [])))
+        st.caption(f"ID: {event['id']} · Tipo: {event.get('kind')} · Modo: {event.get('model_mode')}")
+        deliveries = event.get("deliveries", {})
+        if not deliveries:
+            st.caption("Armazenado localmente. Nenhum envio registrado.")
+        for channel, delivery in deliveries.items():
+            status = delivery.get("status", "")
+            st.write(f"{channel}: {DELIVERY_LABELS.get(status, status)} — {delivery.get('detail', '')}")
+        if content is not None:
+            st.download_button("Baixar imagem JPG", content, file_name=f"{event['id']}.jpg", mime="image/jpeg",
+                               key=f"photo_{event['id']}", icon=":material/download:", width="stretch")
         st.download_button("Baixar registro JSON", json.dumps(event, ensure_ascii=False, indent=2),
-                           file_name=f"{event['id']}.json", mime="application/json", key=f"json_{event['id']}")
-    except OSError:
-        st.warning("A imagem foi removida ou está indisponível no disco.")
-    deliveries = event.get("deliveries", {})
-    if not deliveries:
-        st.caption("Armazenado localmente. Nenhum envio registrado.")
-    for channel, delivery in deliveries.items():
-        status = delivery.get("status", "")
-        statuses = {"pending": "Na fila", "accepted": "Aceito pelo provedor", "failed": "Falhou", "queue_full": "Fila cheia"}
-        st.write(f"{channel}: {statuses.get(status, status)} — {delivery.get('detail', '')}")
-    st.caption("Aceito pelo provedor confirma a resposta da API/SMTP; não confirma leitura ou entrega ao destinatário.")
+                           file_name=f"{event['id']}.json", mime="application/json", key=f"json_{event['id']}",
+                           width="stretch")
+        st.caption("Aceito pelo provedor confirma a resposta da API/SMTP; não confirma leitura ou entrega.")

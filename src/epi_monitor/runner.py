@@ -15,12 +15,13 @@ from .rendering import render_frame
 from .reporting import frame_record
 
 
-def _output_paths(source, person_model, ppe_model, output, snapshot):
+def _output_paths(source, person_model, ppe_model, output, snapshot, boots_model=None):
     """Validate destinations before loading weights or opening any input."""
     destination = Path(output).expanduser().resolve()
     image_path = Path(snapshot).expanduser().resolve() if snapshot else None
     outputs = [destination, *([image_path] if image_path is not None else [])]
-    protected = {Path(model).expanduser().resolve() for model in (person_model, ppe_model)}
+    protected = {Path(model).expanduser().resolve() for model in (person_model, ppe_model, boots_model)
+                 if model is not None}
     # Exported OpenVINO models may be supplied as either a directory or XML.
     model_directories = {path for path in protected if path.is_dir()}
     for directory in model_directories:
@@ -46,7 +47,7 @@ def _output_paths(source, person_model, ppe_model, output, snapshot):
     return destination, image_path
 
 
-def run_detection(*, source, person_model=DEFAULT_PERSON_MODEL, ppe_model=DEFAULT_PPE_MODEL,
+def run_detection(*, source, person_model=DEFAULT_PERSON_MODEL, ppe_model=DEFAULT_PPE_MODEL, boots_model=None,
                   device="auto", imgsz=640, confidence=.4, iou=.45, max_frames=300,
                   output="runs/detection/frames.jsonl", snapshot=None, show=False,
                   save_events=False, camera_name="Câmera 01", location="Local não informado",
@@ -61,10 +62,11 @@ def run_detection(*, source, person_model=DEFAULT_PERSON_MODEL, ppe_model=DEFAUL
         raise ValueError("max_frames deve ser positivo.")
     if snapshot and Path(snapshot).suffix.lower() not in {".jpg", ".jpeg", ".png"}:
         raise ValueError("Snapshot precisa ter extensão .jpg ou .png.")
-    destination, image_path = _output_paths(source, person_model, ppe_model, output, snapshot)
+    destination, image_path = _output_paths(source, person_model, ppe_model, output, snapshot, boots_model)
     context = CameraContext(name=camera_name, location=location)
     policy = EventPolicy("ppe", confirmation_seconds, cooldown_seconds)
-    pipeline = create_cascade(person_model, ppe_model, device, imgsz, confidence, iou)
+    pipeline_options = {"boots_model": boots_model} if boots_model is not None else {}
+    pipeline = create_cascade(person_model, ppe_model, device, imgsz, confidence, iou, **pipeline_options)
     store = EventStore(event_directory) if save_events else None
     events = EventService(store, context, policy, False, pipeline.names) if store else None
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -121,6 +123,7 @@ def run_detection(*, source, person_model=DEFAULT_PERSON_MODEL, ppe_model=DEFAUL
         "frames": count, "ppe_executed_frames": executed, "ppe_skipped_frames": count - executed,
         "person_device": pipeline.person_detector.device, "ppe_device": pipeline.ppe_detector.device,
         "person_model": str(person_model), "ppe_model": str(ppe_model),
+        "boots_model": str(boots_model) if boots_model is not None else None,
         "observations_by_status": dict(statuses), "events_saved": event_ids,
         "elapsed_seconds": time.perf_counter() - started, "output": str(destination),
         "snapshot": str(image_path) if image_path is not None else None,

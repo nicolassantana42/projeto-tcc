@@ -169,12 +169,10 @@ def test_clear_helmet_is_associated_only_with_its_person():
     assert result.assessments[1].present == ("vest",)
 
 
-@pytest.mark.parametrize("label", ["Hardhat", "NO-Hardhat"])
-def test_multiple_boxes_competing_for_one_slot_abstain(label):
+@pytest.mark.parametrize("label, status", [("Hardhat", "ok"), ("NO-Hardhat", "unsafe")])
+def test_duplicate_boxes_of_one_polarity_point_the_same_way(label, status):
     result = cascade([person()], [equipment(label), equipment(label), equipment("Safety Vest")]).process(FRAME)
-    assert result.assessments[0].status == "uncertain"
-    assert "helmet" in result.assessments[0].uncertain
-    assert result.alerts == []
+    assert result.assessments[0].status == status
 
 
 @pytest.mark.parametrize("coordinates", [(0, 20, 160, 280), (40, 0, 160, 280), (340, 20, 500, 280), (40, 20, 160, 300)])
@@ -286,3 +284,25 @@ def test_invalid_image_fails_before_model_inference():
         pipeline.process(np.zeros((10, 10), dtype=np.uint8))
     assert not pipeline.person_detector.calls
     assert not pipeline.ppe_detector.calls
+
+
+def test_single_model_with_boots_evaluates_boots_automatically():
+    names = {0: "helmet", 1: "vest", 2: "boots", 3: "no_helmet", 4: "no_boots"}
+    boot = box("boots", (70, 250, 100, 278))
+    pipeline = CascadePipeline(FakeDetector({0: "person"}, [person()]),
+                               FakeDetector(names, [equipment("helmet"), equipment("vest"), boot]))
+    assert pipeline.required_ppe == ("helmet", "vest", "boots")
+    assert pipeline.process(FRAME).assessments[0].status == "ok"
+
+
+def test_overlapping_people_take_the_clearly_closer_box():
+    left, right = (40, 20, 160, 280), (130, 20, 250, 280)
+    result = cascade([person(left), person(right)], [equipment("Hardhat", left)]).process(FRAME)
+    assert "helmet" in result.assessments[0].present
+    assert "helmet" not in result.assessments[1].present
+
+
+def test_clipped_person_still_counts_visible_equipment():
+    clipped = (0, 20, 160, 280)
+    result = cascade([person(clipped)], [equipment("Hardhat", clipped), equipment("Safety Vest", clipped)]).process(FRAME)
+    assert result.assessments[0].status == "ok"

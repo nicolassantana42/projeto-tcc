@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections import deque
 from datetime import datetime
+from html import escape
+import json
 from pathlib import Path
 import tempfile
 import threading
@@ -25,7 +27,7 @@ from epi_monitor.types import Detection, FrameResult
 from epi_monitor.events import EventService
 from epi_monitor.notifications import NotificationDispatcher
 from epi_monitor.ui.preview import AnalysisPacer, encode_preview, preview_markup
-from epi_monitor.ui import profiles
+from epi_monitor.ui import profiles, theme
 from epi_monitor.ui.alert_panels import (
     camera_context, configured_senders, event_policy, event_store, init_alert_settings,
     render_alert_settings, render_occurrences, reports_root,
@@ -38,33 +40,6 @@ PREVIEW = "Prévia ilustrativa"
 ANALYSIS_RATES = {"3 análises/s · econômico": 3, "10 análises/s · padrão": 10,
                   "25 análises/s": 25, "30 análises/s": 30}
 
-STYLE = """
-<style>
-.stApp {background: #0b1220; color: #e4edf4;}
-[data-testid="stHeader"] {background: #0b1220dd;}
-[data-testid="stSidebar"] {background: #101b2b; border-right: 1px solid #263449;}
-[data-testid="stSidebar"] .stMarkdown p {color: #aabace;}
-.block-container {padding-top: 2rem; padding-bottom: 2rem; max-width: 1560px;}
-h1,h2,h3 {letter-spacing: -.025em; color: #eff7fc !important;}
-h1 {font-size: 2.05rem !important; line-height: 1.15 !important;}
-.eyebrow {color: #4bd8b0; font-size: .72rem; letter-spacing: .17em; font-weight: 700;}
-.muted {color: #99abc0; font-size: .9rem;}
-.brand {font-size: 1.45rem; font-weight: 750; letter-spacing: -.04em; color:#edf8fa;}
-.brand span {color: #52dab4;}
-.pill {display:inline-block; padding: 5px 11px; border-radius: 24px; font-size:.72rem;
-       font-weight:650; border: 1px solid #2b4a4d; color:#76e6c6; background:#173333;}
-[data-testid="stMetric"] {background: #132135; border: 1px solid #27384e;
-    border-radius: 12px; padding: 15px 18px; min-height: 109px;}
-[data-testid="stMetricLabel"] {color:#a1b5cb; font-size:.82rem;}
-[data-testid="stMetricValue"] {color:#eff9ff; font-weight:650;}
-[data-testid="stVerticalBlockBorderWrapper"] {border-color:#283a50 !important; border-radius:12px;}
-.stButton button[kind="primary"] {background:#45d4ab; color:#09271f; border:0; font-weight:700;}
-.stButton button {border-radius:8px;}
-div[data-testid="stCaptionContainer"] {color:#91a8be;}
-.frame-placeholder {height:330px; display:flex; align-items:center; justify-content:center;
-  border:1px dashed #355069; border-radius:12px; color:#9bb0c8; background:#0e1a2b;}
-</style>
-"""
 
 
 def _illustrative_result(frame_index: int) -> FrameResult:
@@ -277,16 +252,15 @@ def _start(source_type, upload, model_path, model_mode, device, camera_index, st
                 model_path=model_path.strip(), device=device,
                 confidence=st.session_state.confidence, iou=st.session_state.iou,
             )
-            with st.spinner("Carregando modelo e abrindo a fonte…"):
-                if model_mode == "EPI treinado":
-                    from epi_monitor.factory import create_cascade
-                    pipeline = create_cascade(person_model_path, model_path.strip(), device,
-                                              confidence=st.session_state.confidence, iou=st.session_state.iou)
-                    detector = pipeline.detector
-                else:
-                    detector = YOLODetector(configuration).load()
-                    pipeline = Pipeline(detector, demo_mode=True)
-                capture = open_source(source).open()
+            if model_mode == "EPI treinado":
+                from epi_monitor.factory import create_cascade
+                pipeline = create_cascade(person_model_path, model_path.strip(), device,
+                                          confidence=st.session_state.confidence, iou=st.session_state.iou)
+                detector = pipeline.detector
+            else:
+                detector = YOLODetector(configuration).load()
+                pipeline = Pipeline(detector, demo_mode=True)
+            capture = open_source(source).open()
             settings = st.session_state.alert_settings
             service = None
             if settings["save_enabled"]:
@@ -348,182 +322,208 @@ def _start(source_type, upload, model_path, model_mode, device, camera_index, st
             st.session_state.notice = f"Não foi possível iniciar: {error}"
 
 
+STATUS_NAMES = {"ok": "EPIs OK", "unsafe": "Sem EPI", "uncertain": "Inconclusivo"}
+EQUIPMENT_ICONS = {"helmet": "helmet", "vest": "vest", "boots": "boots"}
+METRICS_PATH = Path("models/ppe/epi.metrics.json")
+
+
+def _model_equipment():
+    """EPIs that the loaded PPE model can recognize, in display order."""
+    metadata = st.session_state.get("active_metadata", {})
+    classes = {canonical_label(name) for name in metadata.get("ppe_model_classes", [])}
+    return [kind for kind in theme.EQUIPMENT if kind in classes]
+
+
 def _render_ppe_capabilities():
     metadata = st.session_state.get("active_metadata", {})
     if metadata.get("mode") != "EPI treinado":
         return
     classes = {canonical_label(name) for name in metadata.get("ppe_model_classes", [])}
-    supported = [name for label, name in (("no_helmet", "sem capacete"), ("no_vest", "sem colete")) if label in classes]
-    missing = [name for label, name in (("no_helmet", "sem capacete"), ("no_vest", "sem colete")) if label not in classes]
-    st.caption("Classes de ausência disponíveis no modelo carregado: " + (", ".join(supported) or "nenhuma") + ".")
-    if missing:
-        st.warning("Este modelo não tem classe explícita de " + " / ".join(missing)
-                   + ". EPI não encontrado permanece inconclusivo e não gera alerta de ausência desse item.")
-    st.caption("A existência da classe não garante acerto. Confira as métricas dos pesos e revise as evidências.")
-    st.caption("Escopo desta avaliação: capacete e colete. Botas não são avaliadas.")
+    supported = [f"sem {name.lower()}" for kind, name in theme.EQUIPMENT.items() if f"no_{kind}" in classes]
+    st.caption("Classes de ausência disponíveis no modelo carregado: " + (", ".join(supported) or "nenhuma") + ". "
+               "EPI não encontrado sem classe de ausência aparece como inconclusivo.")
+
+
+def _equipment_status(item, equipment):
+    if equipment in item.uncertain:
+        return "uncertain", "⚠️ Não detectado"
+    if equipment in item.absent:
+        return "unsafe", "❌ Ausente"
+    if equipment in item.present:
+        return "ok", "✅ Detectado"
+    return "uncertain", "⚠️ Não detectado"
 
 
 def _render_ppe_assessments(result):
     if not result.assessments:
+        st.markdown(theme.empty_state("Nenhuma pessoa no quadro",
+                                      "O detector de EPIs só roda quando o primeiro estágio encontra pessoas.", "users"),
+                    unsafe_allow_html=True)
         return
-    def equipment_status(item, equipment):
-        if equipment in item.uncertain:
-            return "Inconclusivo"
-        if equipment in item.absent:
-            return "Ausência explícita"
-        if equipment in item.present:
-            return "Detectado"
-        return "Inconclusivo"
+    evaluated = [kind for kind in theme.EQUIPMENT
+                 if any(kind in item.present + item.absent + item.uncertain for item in result.assessments)]
+    short = {"ok": "Detectado", "unsafe": "Ausente", "uncertain": "Não visto"}
+    cards = []
+    for item in result.assessments:
+        cells = "".join(
+            f'<div class="eq-item {css}">{theme.icon(EQUIPMENT_ICONS[kind], 18)}<span>{theme.EQUIPMENT[kind]}</span>{short[css]}</div>'
+            for kind in evaluated for css, _ in [_equipment_status(item, kind)])
+        cards.append(f'<div class="person {item.status}"><div class="person-head">'
+                     f'<div class="person-name"><span class="avatar">P{item.index}</span>Pessoa {item.index}</div>'
+                     f'{theme.badge(STATUS_NAMES[item.status], item.status)}</div><div class="eq">{cells}</div></div>')
+    st.markdown("".join(cards), unsafe_allow_html=True)
+    with st.expander("Detalhes técnicos da avaliação"):
+        st.dataframe([{
+            "Pessoa": item.index,
+            **{theme.EQUIPMENT[kind]: _equipment_status(item, kind)[1] for kind in evaluated},
+            "Resultado": STATUS_NAMES[item.status],
+            "Evidências": "; ".join(item.reasons),
+        } for item in result.assessments], hide_index=True, width="stretch")
+        st.caption("Inconclusivo não significa ausência de EPI. O número da pessoa vale apenas para este frame.")
 
-    status_names = {"ok": "EPIs detectados", "unsafe": "Possível ausência — revisar", "uncertain": "Inconclusivo"}
-    st.dataframe([{
-        "Pessoa no frame": item.index,
-        "Capacete": equipment_status(item, "helmet"),
-        "Colete": equipment_status(item, "vest"),
-        "Resultado": status_names[item.status],
-        "Evidências": "; ".join(item.reasons),
-    } for item in result.assessments], hide_index=True, width="stretch")
-    st.caption("Inconclusivo não significa ausência de EPI. O número da pessoa vale apenas para este frame.")
+
+def _step_runtime(runtime):
+    """Advance one analysis tick; stop the session on end of source or error."""
+    try:
+        result = runtime.step(st.session_state.confidence, st.session_state.iou)
+        if result is None:
+            _stop("Imagem analisada." if isinstance(runtime.capture, ImageSource) else
+                  "Fim do vídeo ou fonte encerrada. O último frame está disponível para exportação.")
+            st.rerun()
+        st.session_state.latest_result = result
+        st.session_state.latest_frame = runtime.annotated_frame
+        st.session_state.latest_preview = runtime.preview_bytes
+        st.session_state.preview_error = runtime.preview_error
+        st.session_state.observed_fps = runtime.observed_fps
+        st.session_state.active_device = runtime.device
+        st.session_state.active_metadata["device"] = runtime.device
+        record = frame_record(result, illustrative=runtime.illustrative, observed_fps=runtime.observed_fps)
+        record["thresholds"] = {"confidence": st.session_state.confidence, "iou": st.session_state.iou}
+        st.session_state.history.append(record)
+        if runtime.last_event is not None:
+            st.session_state.last_event = runtime.last_event
+    except Exception as error:
+        if isinstance(error, CaptureError):
+            message = "Captura interrompida. Verifique a webcam, o arquivo ou a conexão do stream."
+        else:
+            message = f"Processamento interrompido: {error}"
+        _stop(message)
+        st.rerun()
 
 
-def _live_panel(compact=False):
+def _status_counts(record):
+    statuses = [item["status"] for item in record.get("assessments", [])]
+    return {key: statuses.count(key) for key in ("ok", "unsafe", "uncertain")}
+
+
+def _kpi_row(result, has_metrics):
+    """Four KPI cards; deltas compare with the previous analyzed frame."""
+    history = [record for record in st.session_state.history if record["mode"] == "model_inference"]
+    now = _status_counts(history[-1]) if has_metrics and history else None
+    before = _status_counts(history[-2]) if has_metrics and len(history) > 1 else None
+    people = sum(now.values()) if now else None
+    fps = st.session_state.get("observed_fps")
+
+    def delta(key):
+        if before is None:
+            return None
+        return (sum(now.values()) - sum(before.values())) if key == "people" else now[key] - before[key]
+
+    rate = f'{100 * now["ok"] / people:.0f}<small>%</small>' if people else "—"
+    cards = [
+        theme.kpi("Pessoas no quadro", str(people) if people is not None else "—", "users", "teal",
+                  "detectadas pelo 1º estágio", delta("people")),
+        theme.kpi("Conformidade", rate, "shield", "green",
+                  f'{now["ok"]} de {people} com todos os EPIs' if people else "pessoas com todos os EPIs", delta("ok")),
+        theme.kpi("Alertas", str(now["unsafe"]) if now else "—", "alert", "red",
+                  "ausência explícita de EPI", delta("unsafe"), delta_good_up=False),
+        theme.kpi("Desempenho", f"{fps:.1f}<small>FPS</small>" if has_metrics and fps is not None else
+                  (f"{result.inference_ms:.0f}<small>ms</small>" if has_metrics else "—"), "activity", "blue",
+                  f"inferência {result.inference_ms:.0f} ms" if has_metrics else "taxa de análise observada"),
+    ]
+    for column, card in zip(st.columns(4, gap="medium"), cards):
+        column.markdown(card, unsafe_allow_html=True)
+
+
+def _compliance_chart():
+    import altair as alt
+    import pandas as pd
+
+    rows = [{"Frame": record["frame_index"], "Estado": label, "Pessoas": _status_counts(record)[key]}
+            for record in st.session_state.history if record["mode"] == "model_inference"
+            for key, label in (("ok", "EPIs OK"), ("uncertain", "Inconclusivo"), ("unsafe", "Sem EPI"))]
+    if len({row["Frame"] for row in rows}) < 2:
+        st.markdown(theme.empty_state("A linha do tempo aparece com vídeo ou câmera",
+                                      "Cada quadro analisado vira um ponto: veja a conformidade evoluir ao longo da gravação.",
+                                      "chart"), unsafe_allow_html=True)
+        return
+    chart = alt.Chart(pd.DataFrame(rows)).mark_area(opacity=.85, interpolate="monotone").encode(
+        x=alt.X("Frame:Q", title="Quadro analisado", axis=alt.Axis(grid=False, labelColor="#6B7280", titleColor="#6B7280")),
+        y=alt.Y("Pessoas:Q", stack=True, title=None, axis=alt.Axis(gridColor="#F3F4F6", labelColor="#6B7280", tickMinStep=1)),
+        color=alt.Color("Estado:N", scale=alt.Scale(domain=["EPIs OK", "Inconclusivo", "Sem EPI"],
+                                                    range=["#10B981", "#F59E0B", "#EF4444"]),
+                        legend=alt.Legend(orient="top", title=None, labelColor="#4B5563")),
+        tooltip=["Frame", "Estado", "Pessoas"],
+    ).properties(height=210).configure_view(strokeWidth=0)
+    st.altair_chart(chart, use_container_width=True)
+
+
+def _live_panel():
     runtime = st.session_state.get("runtime")
-    if runtime is not None:
-        if runtime.closed:
-            _stop("Sessão pausada por inatividade. Inicie novamente para reabrir a captura.")
-            st.rerun()
+    if runtime is not None and runtime.closed:
+        _stop("Sessão pausada por inatividade. Inicie novamente para reabrir a captura.")
+        st.rerun()
     if runtime is not None and runtime.should_process():
-        try:
-            result = runtime.step(st.session_state.confidence, st.session_state.iou)
-            if result is None:
-                _stop("Fim do vídeo ou fonte encerrada. O último frame está disponível para exportação.")
-                st.rerun()
-            st.session_state.latest_result = result
-            st.session_state.latest_frame = runtime.annotated_frame
-            st.session_state.latest_preview = runtime.preview_bytes
-            st.session_state.preview_error = runtime.preview_error
-            st.session_state.observed_fps = runtime.observed_fps
-            st.session_state.active_device = runtime.device
-            st.session_state.active_metadata["device"] = runtime.device
-            record = frame_record(
-                result, illustrative=runtime.illustrative, observed_fps=runtime.observed_fps,
-            )
-            record["thresholds"] = {"confidence": st.session_state.confidence, "iou": st.session_state.iou}
-            st.session_state.history.append(record)
-            if runtime.last_event is not None:
-                st.session_state.last_event = runtime.last_event
-        except Exception as error:
-            if isinstance(error, CaptureError):
-                message = "Captura interrompida. Verifique a webcam, o arquivo ou a conexão do stream."
-            else:
-                message = f"Processamento interrompido: {error}"
-            _stop(message)
-            st.rerun()
+        _step_runtime(runtime)
 
     result = st.session_state.get("latest_result")
     illustrative = st.session_state.get("illustrative", False) if result is not None else st.session_state.get("source_type") == PREVIEW
     active = runtime is not None and not runtime.closed
     has_metrics = result is not None and not illustrative
-    counts = result.counts if result is not None else {}
-    fps = st.session_state.get("observed_fps")
-    pipeline_fps = 1000 / result.pipeline_ms if has_metrics and result.pipeline_ms > 0 else None
-    if result is not None and not illustrative:
-        _render_ppe_capabilities()
-    if compact:
-        metrics = st.columns(2)
-        metrics[0].metric("FPS observado", f"{fps:.1f}" if has_metrics and fps is not None else "—")
-        metrics[1].metric("Inferência total", f"{result.inference_ms:.1f} ms" if has_metrics else "—")
-        frame = st.session_state.get("latest_frame")
-        if frame is not None:
-            _show_preview(frame)
-            st.caption(f"Frame {result.frame_index} · {sum(result.counts.values())} caixas · "
-                       f"Dispositivo: {st.session_state.active_device}")
-            if result.assessments:
-                _render_ppe_assessments(result)
-            elif not illustrative:
-                st.caption("Nenhuma pessoa avaliada para EPI neste frame.")
-        else:
-            _show_preview()
-            st.info("Selecione uma imagem, vídeo ou câmera e clique em Iniciar. As pessoas detectadas aparecem aqui com caixas e nível de confiança.")
-        if illustrative:
-            st.caption("Prévia ilustrativa: desenhos sem inferência de modelo.")
-        if runtime is not None and runtime.event_error:
-            st.error(runtime.event_error)
-        if runtime is not None and runtime.dispatcher is not None:
-            delivery = runtime.dispatcher.snapshot()
-            st.caption(f"Envios: {delivery['pending']} pendentes · {delivery['accepted']} aceitos · {delivery['failed']} falharam.")
-            if delivery["store_errors"]:
-                st.warning("Falha ao gravar o status de envios. Verifique o armazenamento.")
-        if st.session_state.get("last_event"):
-            event = st.session_state.last_event
-            st.success(f"Última imagem salva: {event['camera_name']} · {event['location']}. Consulte Ocorrências.")
-            st.caption(f"Arquivo: {event['snapshot_path']}")
-        return
-    metrics = st.columns(4)
-    metrics[0].metric("FPS observado", f"{fps:.1f}" if has_metrics and fps is not None else "—")
-    metrics[1].metric("Capacidade do pipeline", f"{pipeline_fps:.1f} FPS" if pipeline_fps else "—")
-    metrics[2].metric("Latência de inferência", f"{result.inference_ms:.1f} ms" if has_metrics else "—")
-    metrics[3].metric("Detecções no frame", sum(counts.values()) if result else "—")
-    st.caption("FPS observado: média de até 30 frames, incluindo captura, renderização, interface e limite de análises selecionado. "
-               "Capacidade do pipeline = 1.000 / tempo de processamento; não inclui a interface.")
+
+    _kpi_row(result, has_metrics)
+    st.write("")
     if runtime is not None and runtime.event_error:
         st.error(runtime.event_error)
     if runtime is not None and runtime.dispatcher is not None:
         delivery = runtime.dispatcher.snapshot()
-        st.caption(f"Envios nesta sessão: {delivery['pending']} pendentes · {delivery['accepted']} aceitos · "
-                   f"{delivery['failed']} falharam. Detalhes por imagem em Ocorrências.")
+        st.caption(f"Envios: {delivery['pending']} pendentes · {delivery['accepted']} aceitos · {delivery['failed']} falharam.")
         if delivery["store_errors"]:
-            st.warning("Não foi possível atualizar o status de alguns envios no disco. Verifique o armazenamento.")
+            st.warning("Falha ao gravar o status de envios. Verifique o armazenamento.")
     if st.session_state.get("last_event"):
         event = st.session_state.last_event
-        st.success(f"Última imagem salva: {event['camera_name']} · {event['location']} · {event['timestamp_utc']}. Veja a aba Ocorrências.")
+        st.success(f"Ocorrência salva: {event['camera_name']} · {event['location']}. Veja a aba Ocorrências.")
 
-    left, right = st.columns([2.35, 1], gap="large")
+    left, right = st.columns([2.2, 1], gap="large")
     with left, st.container(border=True):
-        title_col, status_col = st.columns([3, 1])
-        title_col.markdown("#### Visão ao vivo")
-        status = "PRÉVIA ILUSTRATIVA" if illustrative else ("AO VIVO" if active else "PAUSADO" if result else "PRONTO PARA INICIAR")
-        status_col.markdown(f'<span class="pill">{status}</span>', unsafe_allow_html=True)
+        status = (theme.badge("Prévia", "info") if illustrative else theme.badge("Ao vivo", "ok", live=True) if active
+                  else theme.badge("Analisado", "neutral") if result else theme.badge("Pronto", "neutral"))
+        st.markdown(theme.card_title("Visão da câmera", "video", status), unsafe_allow_html=True)
         frame = st.session_state.get("latest_frame")
         if frame is None:
             _show_preview()
-            st.info("Selecione Webcam local, Arquivo de vídeo ou RTSP / IP e clique em Iniciar. "
-                    "As pessoas detectadas aparecem aqui com caixas e nível de confiança.")
+            st.info("Escolha a fonte na barra lateral e clique em ▶ Iniciar.")
         else:
             _show_preview(frame)
-            st.caption(f"Frame {result.frame_index:,} · {st.session_state.active_metadata['source']} · "
-                       f"Dispositivo: {st.session_state.active_device}")
+            st.caption(f"Quadro {result.frame_index:,} · {st.session_state.active_metadata['source']} · "
+                       f"Dispositivo: {st.session_state.active_device}"
+                       + (f" · inferência {result.inference_ms:.0f} ms" if has_metrics else ""))
         if illustrative and result is not None:
-            st.info("Prévia desenhada por código, sem câmera e sem modelo. Caixas e contagens são ilustrativas; "
-                    "não há métricas de desempenho nem avaliação real de EPI.")
-        else:
-            st.caption("Caixas representam resultados do modelo selecionado. Alertas exigem revisão humana.")
-            if result is not None:
-                _render_ppe_assessments(result)
+            st.info("Prévia ilustrativa: desenho sem câmera e sem modelo.")
 
-    with right:
-        with st.container(border=True):
-            st.markdown("#### Objetos por classe")
-            st.caption("Contagem no frame atual")
-            if counts:
-                st.dataframe(
-                    [{"Classe": label, "Quantidade": count} for label, count in sorted(counts.items())],
-                    hide_index=True, width="stretch",
-                )
-            else:
-                st.caption("Nenhuma detecção no frame atual." if result else "As classes aparecerão após o início da captura.")
-            st.caption("Detecções por frame. Pessoas repetidas em frames diferentes não são pessoas únicas.")
-        with st.container(border=True):
-            st.markdown("#### Central de atenção")
-            if result and result.alerts:
-                for alert in result.alerts[:5]:
-                    st.warning(str(alert))
-            elif result:
-                st.success("Nenhum alerta de classe neste frame.")
-                st.caption("Ausência de alerta não comprova conformidade de EPI.")
-            else:
-                st.info("Aguardando início da sessão.")
-        st.caption(f"Histórico em memória: {len(st.session_state.history)} / {HISTORY_LIMIT} frames.")
+    with right, st.container(border=True):
+        count = theme.badge(str(len(result.assessments)), "neutral") if has_metrics else ""
+        st.markdown(theme.card_title("Por pessoa", "clipboard", count), unsafe_allow_html=True)
+        if has_metrics:
+            _render_ppe_assessments(result)
+            _render_ppe_capabilities()
+        else:
+            st.markdown(theme.empty_state("Aguardando análise", "Cada pessoa detectada aparece aqui com o "
+                                          "estado de capacete, colete e bota.", "users"), unsafe_allow_html=True)
+
+    with st.container(border=True):
+        st.markdown(theme.card_title("Conformidade ao longo do tempo", "chart"), unsafe_allow_html=True)
+        _compliance_chart()
 
 
 def _show_preview(frame=None):
@@ -548,13 +548,105 @@ def _model_path_input(label, *, default, key, disabled):
                          on_change=_remember_model_path, args=(key,))
 
 
+PIPELINE_STEPS = (
+    ("1 · Captura", "Imagem, vídeo, webcam ou RTSP; o quadro é validado como BGR."),
+    ("2 · Detecção de pessoas", "YOLO11n (COCO) localiza cada pessoa. Sem pessoas, o 2º estágio nem executa."),
+    ("3 · Detecção de EPIs", "YOLO11n treinado no Construction-PPE encontra capacete, colete e bota no quadro inteiro."),
+    ("4 · Associação por pessoa", "Cada EPI é ligado à pessoa pela região do corpo (cabeça, tronco, pés)."),
+    ("5 · Decisão conservadora", "OK, sem EPI (classe explícita) ou inconclusivo; nunca conclui ausência só por não ver."),
+    ("6 · Evidência", "Ocorrências salvam foto + JSON e podem notificar via Telegram."),
+)
+
+
+def _timeline():
+    return '<div class="timeline">' + "".join(
+        f'<div class="tl"><b>{title}</b><p>{text}</p></div>' for title, text in PIPELINE_STEPS) + "</div>"
+
+
+@st.dialog("Como o sistema funciona", width="large")
+def _about_dialog():
+    st.markdown(_timeline(), unsafe_allow_html=True)
+    st.caption("Resultados exigem revisão humana; o sistema apoia, não substitui, a fiscalização.")
+
+
+def _header():
+    metadata = st.session_state.get("active_metadata", {})
+    loaded = _model_equipment() if metadata.get("mode") == "EPI treinado" else None
+    chips = "".join(
+        f'<span class="chip {"on" if loaded and kind in loaded else "off" if loaded is not None else ""}">'
+        f'{theme.icon(EQUIPMENT_ICONS[kind], 15)}{name}</span>' for kind, name in theme.EQUIPMENT.items())
+    text, button = st.columns([5, 1], vertical_alignment="bottom")
+    text.markdown(
+        f'<div class="crumbs">{theme.icon("shield", 14)} Monitor de EPIs <span>/</span> <b>Painel de monitoramento</b></div>'
+        f'<div class="page-head"><div><h1 class="page-title">Monitor de EPIs</h1>'
+        f'<p class="page-sub">Detecção de capacete, colete e bota por pessoa com visão computacional (YOLO11).</p></div>'
+        f'<div class="chips">{chips}</div></div>', unsafe_allow_html=True)
+    if button.button("Como funciona", icon=":material/info:", width="stretch"):
+        _about_dialog()
+
+
+def _model_tab():
+    try:
+        metrics = json.loads(METRICS_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        st.markdown(theme.empty_state("Métricas do modelo indisponíveis",
+                                      f"Gere {METRICS_PATH} avaliando os pesos no conjunto de teste.", "cpu"),
+                    unsafe_allow_html=True)
+        return
+    import altair as alt
+    import pandas as pd
+
+    classes = metrics["classes"]
+    cards = [theme.kpi(f"{theme.EQUIPMENT[kind]} · mAP50", f'{100 * values["mAP50"]:.1f}<small>%</small>',
+                       EQUIPMENT_ICONS[kind], "teal",
+                       f'P {100 * values["precision"]:.0f}% · R {100 * values["recall"]:.0f}% · {values["instances"]} instâncias',
+                       100 * (values["mAP50"] - metrics["baseline"][kind]))
+             for kind, values in classes.items()]
+    cards.append(theme.kpi("Inferência (teste)", f'{metrics["speed_ms"]:.0f}<small>ms</small>', "cpu", "blue",
+                           f'{metrics["architecture"]} · CPU, por imagem'))
+    for column, card in zip(st.columns(4, gap="medium"), cards):
+        column.markdown(card, unsafe_allow_html=True)
+    st.caption("Variação em pontos percentuais frente ao modelo anterior (10 épocas), no mesmo conjunto de teste.")
+    st.write("")
+    left, right = st.columns([1.4, 1], gap="large")
+    with left, st.container(border=True):
+        st.markdown(theme.card_title("mAP50 no conjunto de teste", "chart",
+                                     theme.badge(f'{metrics["images"]} imagens inéditas', "info")), unsafe_allow_html=True)
+        rows = [{"Classe": theme.EQUIPMENT[kind], "Modelo": version, "mAP50": value}
+                for kind, values in classes.items()
+                for version, value in (("Anterior", metrics["baseline"][kind]), ("Atual", values["mAP50"]))]
+        chart = alt.Chart(pd.DataFrame(rows)).mark_bar(cornerRadiusTopLeft=6, cornerRadiusTopRight=6).encode(
+            x=alt.X("Classe:N", title=None, sort=list(theme.EQUIPMENT.values()),
+                    axis=alt.Axis(labelAngle=0, labelColor="#4B5563")),
+            xOffset="Modelo:N",
+            y=alt.Y("mAP50:Q", scale=alt.Scale(domain=[0, 1]), title=None,
+                    axis=alt.Axis(format="%", gridColor="#F3F4F6", labelColor="#6B7280")),
+            color=alt.Color("Modelo:N", scale=alt.Scale(domain=["Anterior", "Atual"], range=["#CBD5E1", "#0F766E"]),
+                            legend=alt.Legend(orient="top", title=None, labelColor="#4B5563")),
+            tooltip=["Classe", "Modelo", alt.Tooltip("mAP50:Q", format=".1%")],
+        ).properties(height=260).configure_view(strokeWidth=0)
+        st.altair_chart(chart, use_container_width=True)
+        st.dataframe([{"Classe": theme.EQUIPMENT[kind], "Precisão": values["precision"], "Recall": values["recall"],
+                       "mAP50": values["mAP50"], "mAP50-95": values["mAP50_95"], "Instâncias": values["instances"]}
+                      for kind, values in classes.items()], hide_index=True, width="stretch",
+                     column_config={key: st.column_config.ProgressColumn(key, format="percent", min_value=0, max_value=1)
+                                    for key in ("Precisão", "Recall", "mAP50")})
+    with right, st.container(border=True):
+        st.markdown(theme.card_title("Pipeline em cascata", "scan"), unsafe_allow_html=True)
+        st.markdown(_timeline(), unsafe_allow_html=True)
+        training = metrics["training"]
+        st.caption(f'Treino: {metrics["dataset"]} · {training["epochs"]} épocas · {training["imgsz"]} px · '
+                   f'{training["device"]} · {training["run"]}')
+
+
 def main():
-    st.set_page_config(page_title="Detecção de EPIs", page_icon="🟢", layout="wide")
+    st.set_page_config(page_title="Monitor de EPIs", page_icon="🦺", layout="wide")
+    st.markdown(theme.CSS, unsafe_allow_html=True)
     init_alert_settings()
     for key, value in {
         "runtime": None, "history": deque(maxlen=HISTORY_LIMIT), "latest_result": None,
         "latest_frame": None, "latest_preview": None, "preview_error": "",
-        "notice": "", "export": None, "confidence": .4, "iou": .45,
+        "notice": "", "export": None, "confidence": .4, "iou": .45, "pending_start": None,
     }.items():
         if key not in st.session_state:
             st.session_state[key] = value
@@ -562,117 +654,119 @@ def main():
     running = runtime is not None and not runtime.closed
 
     with st.sidebar:
-        compact = not st.checkbox("Exibir painel completo", value=False)
-        if not compact:
-            st.markdown(STYLE, unsafe_allow_html=True)
-        st.markdown("#### Configuração da sessão")
-        source_type = st.selectbox("Fonte de entrada", ["Webcam local", "Imagem", "Arquivo de vídeo", "RTSP / IP", PREVIEW], key="source_type", disabled=running)
+        st.markdown(f'<div class="brand"><div class="brand-logo">{theme.icon("shield", 20)}</div>'
+                    f'<div><div class="brand-name">Monitor de EPIs</div><div class="brand-sub">Visão computacional · TCC</div></div></div>',
+                    unsafe_allow_html=True)
+        st.markdown(f'<div class="side-label">{theme.icon("video", 13)} Fonte</div>', unsafe_allow_html=True)
+        source_type = st.selectbox("Fonte de entrada", ["Imagem", "Arquivo de vídeo", "Webcam local", "RTSP / IP", PREVIEW],
+                                   key="source_type", disabled=running)
         upload, camera_index, stream_url, video_path = None, 0, "", ""
         if source_type == "Webcam local":
             camera_index = st.number_input("Índice da webcam", min_value=0, max_value=20, value=0, disabled=running)
-            st.caption("A webcam deve estar conectada ao computador que executa o servidor.")
         elif source_type == "Arquivo de vídeo":
-            file_mode = st.radio("Abrir vídeo", ["Enviar arquivo", "Caminho no computador"], disabled=running)
+            file_mode = st.radio("Abrir vídeo", ["Enviar arquivo", "Caminho no computador"], disabled=running, horizontal=True)
             if file_mode == "Enviar arquivo":
                 upload = st.file_uploader("Vídeo", type=["mp4", "avi", "mov", "mkv", "webm"], disabled=running)
             else:
                 video_path = st.text_input("Caminho do vídeo", placeholder="C:/videos/camera.mp4", disabled=running)
         elif source_type == "Imagem":
-            file_mode = st.radio("Abrir imagem", ["Enviar arquivo", "Caminho no computador"], disabled=running)
+            file_mode = st.radio("Abrir imagem", ["Enviar arquivo", "Caminho no computador"], disabled=running, horizontal=True)
             if file_mode == "Enviar arquivo":
                 upload = st.file_uploader("Imagem", type=["jpg", "jpeg", "png", "bmp", "webp"], disabled=running)
             else:
-                video_path = st.text_input("Caminho da imagem", disabled=running)
+                video_path = st.text_input("Caminho da imagem", placeholder="data/datasets/images/test/image611.jpg",
+                                           disabled=running)
         elif source_type == "RTSP / IP":
             stream_url = st.text_input("URL do stream", type="password", placeholder="rtsp://…", disabled=running)
-        model_mode = st.radio("Finalidade do modelo", ["EPI treinado", "Demo COCO"], disabled=running or source_type == PREVIEW)
-        if "backend" not in st.session_state:
-            st.session_state.backend = profiles.recommended_profile()
-        backend = st.selectbox("Execução", [profiles.PYTORCH, profiles.OPENVINO],
-                               key="backend",
-                               disabled=running or source_type == PREVIEW)
-        use_openvino = backend == profiles.OPENVINO
-        person_default = profiles.OPENVINO_PERSON if use_openvino else DEFAULT_PERSON_MODEL
-        ppe_default = profiles.OPENVINO_PPE if use_openvino else DEFAULT_PPE_MODEL
-        default_path = person_default if model_mode == "Demo COCO" else ppe_default
-        model_path = _model_path_input("Caminho do modelo", default=default_path, key=f"model_{model_mode}_{backend}", disabled=running or source_type == PREVIEW)
-        person_model_path = person_default
-        if model_mode == "EPI treinado":
-            person_model_path = _model_path_input("Modelo de pessoas — primeira etapa", default=person_default,
-                                                 key=f"person_model_{backend}", disabled=running)
-        if use_openvino:
-            device = "cpu"
-            st.caption("OpenVINO usa CPU com os dois modelos em 640 pixels. Este perfil não usa quantização; "
-                       "o FPS depende da máquina. PyTorch continua disponível em Execução.")
-            if not profiles.openvino_available():
-                st.warning("O perfil OpenVINO precisa da dependência e dos dois modelos exportados. "
-                           "Selecione Padrão (PyTorch) ou siga docs/ML.md para preparar o perfil.")
-        else:
-            device = st.selectbox("Dispositivo", ["auto", "cpu", "cuda:0", "mps"], disabled=running or source_type == PREVIEW)
-        analysis_rate = st.selectbox("Limite de análises por segundo", list(ANALYSIS_RATES), index=1,
-                                     key="analysis_rate", disabled=running)
-        st.caption("Este é um limite, não uma garantia de FPS. 25/30 exigem que captura e modelos acompanhem esse ritmo; "
-                   "3 reduz o uso de CPU. Veja o FPS observado. Pare para mudar o limite.")
-        if model_mode == "Demo COCO":
-            st.caption("COCO demonstra detecção geral; não é um modelo de identificação de EPIs.")
-        else:
-            st.caption("Pessoa → segundo YOLO de EPI. Informe pesos treinados e confira suas métricas antes da demonstração.")
-            if not Path(model_path).exists():
-                st.warning("Pesos de EPI ainda não disponíveis neste caminho. Treine o modelo ou selecione os pesos gerados em runs/train.")
-            elif Path(model_path).name == "baseline-public.pt":
-                st.warning("Este modelo público teve baixa detecção de coletes na avaliação. Use apenas como comparação experimental.")
-        st.divider()
-        st.markdown("#### Ajustes em tempo real")
-        st.slider("Confiança mínima", min_value=.05, max_value=.95, step=.05, key="confidence")
-        st.slider("IoU / sobreposição", min_value=.05, max_value=.95, step=.05, key="iou")
+
+        st.markdown(f'<div class="side-label">{theme.icon("scan", 13)} Sensibilidade</div>', unsafe_allow_html=True)
+        st.slider("Confiança mínima", min_value=.05, max_value=.95, step=.05, key="confidence",
+                  help="Detecções abaixo deste valor são descartadas. Valores menores encontram mais EPIs e mais falsos positivos.")
         start_col, stop_col = st.columns(2)
-        if start_col.button("▶ Iniciar", type="primary", width="stretch", disabled=running):
-            _start(source_type, upload, model_path, model_mode, device, camera_index, stream_url, video_path, person_model_path)
-            st.rerun()
+        start_clicked = start_col.button("▶ Iniciar", type="primary", width="stretch", disabled=running)
         if stop_col.button("■ Parar", width="stretch", disabled=not running):
             _stop()
+            st.toast("Monitoramento encerrado.", icon=":material/stop_circle:")
             st.rerun()
-        st.caption("Cada sessão possui sua própria captura. Ao sair, a liberação por inatividade ocorre em aproximadamente 45–50 s.")
-        settings = st.session_state.alert_settings
-        st.divider()
-        st.write(f"📍 {settings['camera_name']} · {settings['location'] or 'Configure o local na aba Alertas e integrações'}")
-        st.caption("Gravação automática: " + ("ativa" if settings["save_enabled"] else "desativada"))
 
-    st.title("Detecção de pessoas e EPIs")
-    st.caption("Capacete e colete por pessoa. EPI detectado, não seguro com evidência explícita, ou inconclusivo.")
-    st.caption("Escopo desta avaliação: capacete e colete. Botas não são avaliadas. "
-               "A prévia tem tamanho fixo; as evidências mantêm a resolução da captura.")
-    st.caption("1. Configure câmera, local e Telegram em Alertas e integrações. 2. Escolha a fonte e inicie. "
-               "3. Consulte fotos e envios em Ocorrências.")
+        with st.expander("Avançado", icon=":material/tune:"):
+            model_mode = st.radio("Finalidade do modelo", ["EPI treinado", "Demo COCO"], disabled=running or source_type == PREVIEW)
+            if "backend" not in st.session_state:
+                st.session_state.backend = profiles.recommended_profile()
+            backend = st.selectbox("Execução", [profiles.PYTORCH, profiles.OPENVINO],
+                                   key="backend", disabled=running or source_type == PREVIEW)
+            use_openvino = backend == profiles.OPENVINO
+            person_default = profiles.OPENVINO_PERSON if use_openvino else DEFAULT_PERSON_MODEL
+            ppe_default = profiles.OPENVINO_PPE if use_openvino else DEFAULT_PPE_MODEL
+            default_path = person_default if model_mode == "Demo COCO" else ppe_default
+            model_path = _model_path_input("Caminho do modelo", default=default_path, key=f"model_{model_mode}_{backend}",
+                                           disabled=running or source_type == PREVIEW)
+            person_model_path = person_default
+            if model_mode == "EPI treinado":
+                person_model_path = _model_path_input("Modelo de pessoas — primeira etapa", default=person_default,
+                                                     key=f"person_model_{backend}", disabled=running)
+            if use_openvino:
+                device = "cpu"
+                st.caption("OpenVINO usa CPU com os dois modelos em 640 pixels; não usa quantização.")
+                if not profiles.openvino_available():
+                    st.warning("Perfil OpenVINO indisponível: faltam a dependência ou os modelos exportados. Use PyTorch.")
+            else:
+                device = st.selectbox("Dispositivo", ["auto", "cpu", "cuda:0", "mps"], disabled=running or source_type == PREVIEW)
+            analysis_rate = st.selectbox("Limite de análises por segundo", list(ANALYSIS_RATES), index=1,
+                                         key="analysis_rate", disabled=running)
+            st.caption("É um limite, não uma garantia de FPS. Pare para mudar.")
+            st.slider("IoU / sobreposição", min_value=.05, max_value=.95, step=.05, key="iou")
+            if model_mode == "Demo COCO":
+                st.caption("COCO detecta pessoas, mas não identifica EPIs.")
+            elif not Path(model_path).exists():
+                st.warning("Pesos de EPI não encontrados neste caminho.")
+        if start_clicked:
+            st.session_state.pending_start = (source_type, upload, model_path, model_mode, device, camera_index,
+                                              stream_url, video_path, person_model_path)
+
+        settings = st.session_state.alert_settings
+        st.markdown(f'<div class="side-label">{theme.icon("folder", 13)} Sessão</div>', unsafe_allow_html=True)
+        telegram_on = st.session_state.telegram_config.enabled
+        if telegram_on:
+            telegram_status = "ativo para novas ocorrências" if settings["save_enabled"] else "configurado; envio automático desligado"
+        else:
+            telegram_status = "desativado"
+        st.markdown(
+            f'<div class="side-meta">{theme.icon("video", 14)}{escape(settings["camera_name"])} · '
+            f'{escape(settings["location"] or "local não informado")}</div>'
+            f'<div class="side-meta"><span class="dot" style="background:{"#10B981" if settings["save_enabled"] else "#D1D5DB"}"></span>'
+            f'Gravação automática {"ativa" if settings["save_enabled"] else "desativada"}</div>'
+            f'<div class="side-meta"><span class="dot" style="background:{"#10B981" if telegram_on else "#D1D5DB"}"></span>'
+            f'Telegram {"ativo" if telegram_on else "desativado"}</div>', unsafe_allow_html=True)
+        st.caption(f"Telegram: {telegram_status}.")
+
+    _header()
+    if st.session_state.pending_start is not None:
+        # Skeleton shaped like the real dashboard while weights load and the source opens.
+        loading = st.empty()
+        loading.markdown(theme.skeleton_panel(), unsafe_allow_html=True)
+        arguments, st.session_state.pending_start = st.session_state.pending_start, None
+        _start(*arguments)
+        loading.empty()
+        if st.session_state.runtime is not None:
+            st.toast("Monitoramento iniciado.", icon=":material/play_circle:")
+        st.rerun()
     if st.session_state.notice:
         st.info(st.session_state.notice)
 
-    monitor_tab, occurrences_tab, integrations_tab = st.tabs(["Monitoramento", "Ocorrências", "Alertas e integrações"])
+    monitor_tab, occurrences_tab, integrations_tab, model_tab = st.tabs(
+        ["Monitoramento", "Ocorrências", "Alertas e integrações", "Modelo"])
     with monitor_tab:
-        settings = st.session_state.alert_settings
-        if st.session_state.telegram_config.enabled:
-            telegram_status = "ativo para novas ocorrências" if settings["save_enabled"] else "configurado; envio automático desligado"
-        else:
-            telegram_status = "desativado — configure na aba Alertas e integrações"
-        st.caption(f"Câmera: {settings['camera_name']} · Local: {settings['location'] or 'não informado'} · Telegram: {telegram_status}.")
-        policy_text = "pessoas detectadas" if settings["trigger"] == "person" else "possível ausência de EPI"
-        if settings["save_enabled"]:
-            st.caption(f"Registro automático de {policy_text}: confirmação {settings['confirmation_seconds']:g}s do vídeo/câmera · "
-                       f"intervalo {settings['cooldown_seconds']:g}s. Imagens: {reports_root() / 'occurrences'}")
-            if source_type == "Imagem":
-                st.caption("Imagem estática: salva uma observação única, sem confirmação temporal.")
-        else:
-            st.caption("Registro automático e alertas externos desativados. Use 'Salvar imagem agora' para registrar um frame.")
-        if not settings["location"]:
-            st.info("Cadastre câmera e local / setor na aba Alertas e integrações para identificar as imagens salvas.")
-        if model_mode == "Demo COCO" and settings["trigger"] == "ppe":
-            st.info("Para salvar presença de pessoas com COCO, escolha 'Pessoa detectada' na aba Alertas e integrações. "
-                    "A regra de falta de EPI precisa de um modelo treinado.")
+        if model_mode == "Demo COCO" and st.session_state.alert_settings["trigger"] == "ppe":
+            st.info("Para salvar presença de pessoas com COCO, escolha 'Pessoa detectada' na aba Alertas e integrações.")
+
         @st.fragment(run_every=1 / ANALYSIS_RATES[analysis_rate] if running else None)
         def live_fragment():
-            _live_panel(compact=compact)
+            _live_panel()
         live_fragment()
-        if st.button("Salvar imagem agora", disabled=st.session_state.latest_frame is None or st.session_state.get("illustrative", True)):
+        actions = st.columns([1, 1, 3])
+        if actions[0].button("Salvar imagem agora", icon=":material/photo_camera:", width="stretch",
+                             disabled=st.session_state.latest_frame is None or st.session_state.get("illustrative", True)):
             try:
                 metadata = st.session_state.active_metadata
                 from epi_monitor.events import CameraContext
@@ -681,10 +775,12 @@ def main():
                                            kind="manual", reasons=["Captura manual solicitada na interface"],
                                            demo_mode=metadata["mode"] == "Demo COCO")
                 st.session_state.last_event = event
-                st.success("Imagem salva no computador. Abra a aba Ocorrências para visualizar ou baixar.")
+                st.toast("Imagem salva em Ocorrências.", icon=":material/check_circle:")
+                st.success("Imagem salva. Abra a aba Ocorrências para visualizar ou baixar.")
             except Exception:
                 st.error("Não foi possível salvar a imagem. Verifique a pasta reports e o espaço em disco.")
         _render_export()
+        st.caption("Resultados do modelo exigem revisão humana; não detectar um EPI não prova que ele está ausente.")
     with occurrences_tab:
         @st.fragment
         def history_fragment():
@@ -692,6 +788,8 @@ def main():
         history_fragment()
     with integrations_tab:
         render_alert_settings(running)
+    with model_tab:
+        _model_tab()
 
 
 def _render_export():

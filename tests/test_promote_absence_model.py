@@ -83,12 +83,12 @@ def test_invalid_provenance_or_classes_never_publish(promoter, training, tmp_pat
         report_path.write_text(json.dumps(report))
     with pytest.raises(promoter.PreparationError):
         promoter.promote(training, root=tmp_path)
-    assert not (tmp_path / config.DEFAULT_PPE_MODEL).exists()
-    assert not (tmp_path / config.DEFAULT_PPE_MODEL).with_suffix(".provenance.json").exists()
+    assert not (tmp_path / "models/ppe/absence.pt").exists()
+    assert not (tmp_path / "models/ppe/absence.pt").with_suffix(".provenance.json").exists()
 
 
 def test_all_detection_entry_points_share_new_default():
-    assert config.DEFAULT_PPE_MODEL == "models/ppe/absence.pt"
+    assert config.DEFAULT_PPE_MODEL == "models/ppe/epi.pt"
     for function in (factory.create_cascade, runner.run_detection):
         parameters = inspect.signature(function).parameters
         assert parameters["ppe_model"].default == config.DEFAULT_PPE_MODEL

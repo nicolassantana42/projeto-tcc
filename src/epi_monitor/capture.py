@@ -33,11 +33,13 @@ class VideoSource:
         self._frame_count = 0.0
         self._fps = 0.0
         self.timestamp_seconds = None
+        self._last_file_timestamp = None
 
     def open(self) -> "VideoSource":
         self.close()
         self._frames_read = 0
         self.timestamp_seconds = None
+        self._last_file_timestamp = None
         if self.is_file and not Path(self.source).is_file():
             raise CaptureError(f"Arquivo de vídeo não encontrado: {self.source}")
         try:
@@ -88,18 +90,24 @@ class VideoSource:
             if self.is_file:
                 position = self._property(cv2.CAP_PROP_POS_MSEC) / 1000
                 fallback = (self._frames_read - 1) / self._fps if math.isfinite(self._fps) and self._fps > 0 else None
-                if math.isfinite(position) and position >= 0 and (self._frames_read == 1 or position > (self.timestamp_seconds or 0)):
+                # Keep the last usable timestamp even across unknown metadata.
+                # Otherwise a regressing codec clock after an unknown frame
+                # could be accepted as a new time origin for event cooldowns.
+                previous = self._last_file_timestamp
+                if math.isfinite(position) and position >= 0 and (previous is None or position > previous):
                     self.timestamp_seconds = position
                 elif fallback is not None:
-                    self.timestamp_seconds = max(self.timestamp_seconds or 0, fallback)
+                    self.timestamp_seconds = max(previous or 0, fallback)
                 else:
                     self.timestamp_seconds = None
+                if self.timestamp_seconds is not None:
+                    self._last_file_timestamp = self.timestamp_seconds
             return frame
         if not self.is_file:
             raise CaptureError("Webcam/stream desconectado ou sem quadros. Verifique a fonte e tente reconectar.")
         if self._frames_read == 0:
             raise CaptureError("O arquivo não contém quadros decodificáveis; pode estar vazio ou corrompido.")
-        if self._frame_count > 0 and self._frames_read < self._frame_count - 1:
+        if math.isfinite(self._frame_count) and self._frame_count > 0 and self._frames_read < self._frame_count - 1:
             raise CaptureError("O vídeo terminou antes do esperado; o arquivo ou codec pode estar corrompido.")
         return None
 

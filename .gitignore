@@ -43,3 +43,4 @@ violations/
 .DS_Store
 Thumbs.db
 Desktop.ini
+.venv-broken/

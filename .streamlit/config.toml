@@ -1,9 +1,10 @@
 [theme]
-base = "dark"
-primaryColor = "#34d399"
-backgroundColor = "#08111d"
-secondaryBackgroundColor = "#101d2d"
-textColor = "#e7edf4"
+# Light "clean academic" palette; full tokens live in src/epi_monitor/ui/theme.py.
+base = "light"
+primaryColor = "#0F766E"
+backgroundColor = "#F8F9FA"
+secondaryBackgroundColor = "#F3F4F6"
+textColor = "#111827"
 font = "sans serif"
 
 [server]

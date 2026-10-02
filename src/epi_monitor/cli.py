@@ -46,6 +46,7 @@ def parser() -> argparse.ArgumentParser:
     detect.add_argument("--source", type=source_value, required=True)
     detect.add_argument("--person-model", default=DEFAULT_PERSON_MODEL)
     detect.add_argument("--ppe-model", default=DEFAULT_PPE_MODEL)
+    detect.add_argument("--boots-model", help="modelo auxiliar opcional de botas; experimental e com custo adicional")
     detect.add_argument("--device", default="auto")
     detect.add_argument("--imgsz", type=positive, default=640)
     detect.add_argument("--confidence", type=probability, default=.4)
@@ -69,6 +70,7 @@ def parser() -> argparse.ArgumentParser:
     evaluate.add_argument("--data", required=True)
     evaluate.add_argument("--person-model", default=DEFAULT_PERSON_MODEL)
     evaluate.add_argument("--ppe-model", default=DEFAULT_PPE_MODEL)
+    evaluate.add_argument("--boots-model", help="incluir detector auxiliar de botas na avaliação")
     evaluate.add_argument("--device", default="auto")
     evaluate.add_argument("--imgsz", type=positive, default=640)
     evaluate.add_argument("--split", choices=("val", "test"), default="test")
@@ -214,8 +216,10 @@ def main(argv: list[str] | None = None) -> int:
         elif command == "evaluate-cascade":
             from epi_monitor.factory import create_cascade
             from epi_monitor.evaluation import evaluate_cascade
+            boots = values.pop("boots_model")
             pipeline = create_cascade(values.pop("person_model"), values.pop("ppe_model"),
-                                      values.pop("device"), values.pop("imgsz"), values["confidence"], values["iou"])
+                                      values.pop("device"), values.pop("imgsz"), values["confidence"], values["iou"],
+                                      **({"boots_model": boots} if boots is not None else {}))
             result = evaluate_cascade(pipeline, **values)
         elif command == "infer":
             result = run_inference(args)

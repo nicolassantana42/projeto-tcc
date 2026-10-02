@@ -42,7 +42,7 @@ def test_evaluation_keeps_error_details_in_report_only(monkeypatch, capsys):
 
 def test_detect_defaults_to_local_trained_weights():
     args = parser().parse_args(["detect", "--source", "sample.png"])
-    assert args.ppe_model == "models/ppe/absence.pt"
+    assert args.ppe_model == "models/ppe/epi.pt"
     assert not args.show and not args.save_events
 
 

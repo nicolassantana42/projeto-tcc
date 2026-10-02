@@ -191,6 +191,17 @@ def test_explicit_negative_requires_two_seconds_and_uncertainty_resets_it(tmp_pa
     assert Path(event["snapshot_path"]).is_file()
 
 
+def test_boots_absence_keeps_its_name_in_saved_event(tmp_path):
+    detector = service(tmp_path, confirmation_seconds=2)
+    observation = (person(), ("boots",))
+    assert feed_ppe(detector, 0, observation) is None
+    assert feed_ppe(detector, 1, observation) is None
+    event = feed_ppe(detector, 2, observation)
+    assert "classe explícita de ausência de bota" in event["reasons"][0]
+    assert "colete" not in event["reasons"][0]
+    assert event["assessments"][0]["absent"] == ("boots",)
+
+
 def test_demo_mode_blocks_even_explicit_negative_assessments(tmp_path):
     detector = EventService(EventStore(tmp_path), CameraContext(), EventPolicy(confirmation_seconds=0), True, NAMES)
     assert feed_ppe(detector, 0, (person(), ("helmet",))) is None

@@ -5,7 +5,7 @@ import math
 
 
 DEFAULT_PERSON_MODEL = "models/yolo11n.pt"
-DEFAULT_PPE_MODEL = "models/ppe/absence.pt"
+DEFAULT_PPE_MODEL = "models/ppe/epi.pt"
 
 
 def validate_threshold(value: float, name: str) -> float:

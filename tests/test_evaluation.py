@@ -111,7 +111,7 @@ def test_only_declared_canonical_classes_are_scored_none_is_not_no_vest(tmp_path
              6: "Person", 7: "no_helmet", 8: "no_goggle", 9: "no_gloves", 10: "no_boots"}
     data = dataset(tmp_path, ["7 .5 .5 .4 .4\n5 .5 .5 .4 .4\n"], names)
     report = evaluate_cascade(FakePipeline([[detection("NO-Hardhat"), detection("no_vest"), detection("gloves")]]), data, output=None)
-    assert report["coverage"]["scored_classes"] == ["person", "helmet", "vest", "no_helmet"]
+    assert report["coverage"]["scored_classes"] == ["person", "helmet", "vest", "no_helmet", "boots", "no_boots"]
     assert report["coverage"]["unannotated_canonical_classes"] == ["no_vest"]
     assert report["coverage"]["ignored_predictions"] == {"total": 2, "by_label": {"no_vest": 1, "gloves": 1}}
     assert report["coverage"]["ignored_ground_truth"] == {"total": 1, "by_label": {"none": 1}}

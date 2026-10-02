@@ -5,9 +5,13 @@ from .detection import CascadePipeline
 
 
 def create_cascade(person_model=DEFAULT_PERSON_MODEL, ppe_model=DEFAULT_PPE_MODEL,
-                   device="auto", imgsz=640, confidence=.4, iou=.45):
+                   device="auto", imgsz=640, confidence=.4, iou=.45, *, boots_model=None):
     person = YOLODetector(InferenceConfig(model_path=person_model, device=device,
                                          imgsz=imgsz, confidence=confidence, iou=iou)).load()
     equipment = YOLODetector(InferenceConfig(model_path=ppe_model, device=device,
                                             imgsz=imgsz, confidence=confidence, iou=iou)).load()
-    return CascadePipeline(person, equipment)
+    boots = None
+    if boots_model is not None:
+        boots = YOLODetector(InferenceConfig(model_path=boots_model, device=device,
+                                             imgsz=imgsz, confidence=confidence, iou=iou)).load()
+    return CascadePipeline(person, equipment, boots_detector=boots)

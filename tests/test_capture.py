@@ -84,6 +84,17 @@ def test_truncated_file_is_not_silently_treated_as_completed(monkeypatch, tmp_pa
             source.read()
 
 
+@pytest.mark.parametrize("total", [float("inf"), float("nan"), -1, None])
+def test_unavailable_frame_count_metadata_does_not_turn_eof_into_corruption(monkeypatch, tmp_path, total):
+    frame = np.zeros((20, 30, 3), dtype=np.uint8)
+    capture = FakeCapture([frame], total=total)
+    monkeypatch.setattr("epi_monitor.capture.cv2.VideoCapture", lambda *_: capture)
+    with VideoSource(_video(tmp_path)) as source:
+        assert source.read() is frame
+        assert source.read() is None
+    assert capture.released
+
+
 def test_missing_file_and_unopened_read_are_actionable(tmp_path):
     with pytest.raises(CaptureError, match="não encontrado"):
         VideoSource(str(tmp_path / "missing.mp4")).open()
@@ -171,6 +182,7 @@ class TimedCapture(FakeCapture):
     ([0, 100, 50, 0], 10, [0., .1, .2, .3]),
     ([0, 0, 100], 0, [0., None, .1]),
     ([float("nan"), float("nan")], None, [None, None]),
+    ([1000, float("nan"), 500, 1100], 0, [1., None, None, 1.1]),
 ])
 def test_file_timestamps_use_media_clock_or_fps_fallback(monkeypatch, tmp_path, positions, fps, expected):
     capture = TimedCapture(positions, fps)
@@ -181,6 +193,18 @@ def test_file_timestamps_use_media_clock_or_fps_fallback(monkeypatch, tmp_path, 
             source.read()
             timestamps.append(source.timestamp_seconds)
     assert timestamps == expected and capture.released
+
+
+def test_reopening_file_resets_previous_timestamp_baseline(monkeypatch, tmp_path):
+    captures = iter([TimedCapture([1000], 0), TimedCapture([0], 0)])
+    monkeypatch.setattr("epi_monitor.capture.cv2.VideoCapture", lambda *_: next(captures))
+    source = VideoSource(_video(tmp_path))
+    with source:
+        source.read()
+        assert source.timestamp_seconds == 1.
+    with source:
+        source.read()
+        assert source.timestamp_seconds == 0.
 
 
 def test_live_camera_leaves_timestamp_none_for_monotonic_event_clock(monkeypatch):
