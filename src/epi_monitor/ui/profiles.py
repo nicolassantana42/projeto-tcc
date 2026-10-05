@@ -8,9 +8,10 @@ from epi_monitor.hardware import select_device
 
 
 PYTORCH = "Padrão (PyTorch)"
+IMGSZ = 480  # The PPE model was trained at 480 px; ~2x faster than 640 on CPU.
 OPENVINO = "CPU otimizada (OpenVINO)"
-OPENVINO_PERSON = "models/yolo11n_openvino_model"
-OPENVINO_PPE = "models/ppe/epi_openvino_model"
+OPENVINO_PERSON = "models/yolo11n_480_openvino_model"
+OPENVINO_PPE = "models/ppe/epi_480_openvino_model"
 
 
 def openvino_available() -> bool:
@@ -18,7 +19,7 @@ def openvino_available() -> bool:
     try:
         if find_spec("openvino") is None:
             return False
-        for folder, stem in ((OPENVINO_PERSON, "yolo11n"), (OPENVINO_PPE, "epi")):
+        for folder, stem in ((OPENVINO_PERSON, "yolo11n_480"), (OPENVINO_PPE, "epi_480")):
             for name in (f"{stem}.xml", f"{stem}.bin", "metadata.yaml"):
                 item = Path(folder) / name
                 if not item.is_file() or item.stat().st_size == 0:

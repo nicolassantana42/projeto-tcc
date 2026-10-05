@@ -412,3 +412,13 @@ def test_malformed_occurrence_fields_are_ignored_and_never_pruned(tmp_path, chan
     assert store.prune() == 0
     assert path.is_file()
     assert Path(saved["snapshot_path"]).is_file()
+
+
+def test_analyst_review_is_persisted_and_validated(tmp_path):
+    store = EventStore(tmp_path)
+    event = store.save(FrameResult(np.zeros((40, 40, 3), np.uint8), [], {}, [], 0., 0., 1), np.zeros((40, 40, 3), np.uint8),
+                       CameraContext("cam", "Câmera", "Local"), "manual", ["teste"], demo_mode=True)
+    store.set_review(event["id"], "dismissed")
+    assert store.list_events()[0]["review"]["status"] == "dismissed"
+    with pytest.raises(ValueError):
+        store.set_review(event["id"], "maybe")

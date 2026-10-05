@@ -610,4 +610,4 @@ def test_openvino_profile_passes_both_model_paths_and_cpu_to_pipeline(dashboard,
     button(app, "▶ Iniciar").click().run()
     assert_no_exception(app)
     assert [item.model_path for item in configurations] == [profiles.OPENVINO_PERSON, profiles.OPENVINO_PPE]
-    assert all(item.device == "cpu" and item.imgsz == 640 for item in configurations)
+    assert all(item.device == "cpu" and item.imgsz == profiles.IMGSZ for item in configurations)

@@ -30,8 +30,7 @@ DEFAULTS = {
 
 
 def reports_root() -> Path:
-    # Preserve an existing installation's storage configuration on upgrade.
-    configured = os.environ.get("EPI_REPORTS_DIR", os.environ.get("SAFEGUARD_REPORTS_DIR", "reports"))
+    configured = os.environ.get("EPI_REPORTS_DIR", "reports")
     return Path(configured).expanduser().resolve()
 
 
@@ -255,6 +254,13 @@ def _send_test():
 KIND_LABELS = {"ppe": ("Sem EPI", "unsafe"), "person": ("Pessoa", "info"), "manual": ("Manual", "neutral")}
 DELIVERY_LABELS = {"pending": "Na fila", "accepted": "Aceito pelo provedor", "failed": "Falhou", "queue_full": "Fila cheia"}
 PAGE_SIZE = 10
+REVIEW_LABELS = {"confirmed": ("Confirmada", "unsafe"), "dismissed": ("Falso positivo", "neutral"), None: ("Pendente", "uncertain")}
+
+
+def _review(event: dict):
+    review = event.get("review")
+    status = review.get("status") if isinstance(review, dict) else None
+    return status if status in REVIEW_LABELS else None
 
 
 def _local_time(event: dict) -> str:
@@ -285,6 +291,20 @@ def render_occurrences():
             ("Inicie uma fonte", "Aguarde um alerta", "Revise aqui")), unsafe_allow_html=True)
         return
 
+    reviewed = [_review(event) for event in events]
+    confirmed, dismissed = reviewed.count("confirmed"), reviewed.count("dismissed")
+    decided = confirmed + dismissed
+    cards = [
+        theme.kpi("Ocorrências", str(len(events)), "folder", "teal", "registradas neste computador"),
+        theme.kpi("Pendentes de revisão", str(len(events) - decided), "clipboard", "blue", "aguardando o analista"),
+        theme.kpi("Confirmadas", str(confirmed), "alert", "red", "irregularidades reais"),
+        theme.kpi("Precisão revisada", f"{100 * confirmed / decided:.0f}<small>%</small>" if decided else "—", "shield",
+                  "green", f"confirmadas ÷ revisadas ({decided})" if decided else "revise ocorrências para medir"),
+    ]
+    for column, card in zip(st.columns(4, gap="medium"), cards):
+        column.markdown(card, unsafe_allow_html=True)
+    st.write("")
+
     search_col, kind_col = st.columns([3, 1.3])
     query = search_col.text_input("Buscar", placeholder="Câmera, local, motivo ou ID", key="occurrence_search",
                                   label_visibility="collapsed")
@@ -309,6 +329,7 @@ def render_occurrences():
         "Câmera": event.get("camera_name", ""),
         "Local": event.get("location", ""),
         "Pessoas": event.get("counts", {}).get("person", 0),
+        "Revisão": REVIEW_LABELS[_review(event)][0],
         "Envios": ", ".join(f"{channel}: {DELIVERY_LABELS.get(item.get('status'), item.get('status'))}"
                             for channel, item in event.get("deliveries", {}).items()) or "Somente local",
         "ID": event["id"][:8],
@@ -338,6 +359,25 @@ def render_occurrences():
         st.markdown(theme.card_title("Detalhes", "clipboard", theme.badge(label, tone)), unsafe_allow_html=True)
         st.markdown(f"**{event.get('camera_name', '')}** · {event.get('location', '')}  \n{_local_time(event)}")
         st.write(" · ".join(event.get("reasons", [])))
+        review_label, review_tone = REVIEW_LABELS[_review(event)]
+        st.markdown(f"Revisão do analista: {theme.badge(review_label, review_tone)}", unsafe_allow_html=True)
+        confirm_col, dismiss_col = st.columns(2)
+        decision = None
+        if confirm_col.button("Confirmar", key=f"confirm_{event['id']}", icon=":material/check:", width="stretch",
+                              type="primary", disabled=_review(event) == "confirmed"):
+            decision = "confirmed"
+        if dismiss_col.button("Descartar", key=f"dismiss_{event['id']}", icon=":material/close:", width="stretch",
+                              help="Marca como falso positivo; o registro é mantido para estatística.",
+                              disabled=_review(event) == "dismissed"):
+            decision = "dismissed"
+        if decision is not None:
+            try:
+                store.set_review(event["id"], decision)
+                st.toast("Irregularidade confirmada." if decision == "confirmed" else "Marcada como falso positivo.",
+                         icon=":material/check_circle:")
+                st.rerun(scope="fragment")
+            except (OSError, ValueError):
+                st.error("Não foi possível salvar a revisão. Verifique a pasta reports.")
         st.caption(f"ID: {event['id']} · Tipo: {event.get('kind')} · Modo: {event.get('model_mode')}")
         deliveries = event.get("deliveries", {})
         if not deliveries:

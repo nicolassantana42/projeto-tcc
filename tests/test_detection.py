@@ -306,3 +306,11 @@ def test_clipped_person_still_counts_visible_equipment():
     clipped = (0, 20, 160, 280)
     result = cascade([person(clipped)], [equipment("Hardhat", clipped), equipment("Safety Vest", clipped)]).process(FRAME)
     assert result.assessments[0].status == "ok"
+
+
+def test_fast_mode_reuses_one_model_for_people_and_ppe():
+    names = {0: "Person", 1: "helmet", 2: "vest"}
+    model = FakeDetector(names, [person(), equipment("helmet"), equipment("vest")])
+    result = CascadePipeline(model, model).process(FRAME)
+    assert len(model.calls) == 1
+    assert result.assessments[0].status == "ok"

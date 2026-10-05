@@ -300,7 +300,9 @@ class CascadePipeline:
         boots_ms = 0.
         if people:
             inference_started = perf_counter()
-            second = self.ppe_detector.predict(prepared, confidence=confidence, iou=iou)
+            # Fast mode: one PPE model with a person class serves both stages in one pass.
+            second = (first if self.ppe_detector is self.person_detector
+                      else self.ppe_detector.predict(prepared, confidence=confidence, iou=iou))
             ppe_ms = (perf_counter() - inference_started) * 1000
             for item in second:
                 match = self._vocabulary.get(normalize_label(item.label))

@@ -254,7 +254,7 @@ def _start(source_type, upload, model_path, model_mode, device, camera_index, st
             )
             if model_mode == "EPI treinado":
                 from epi_monitor.factory import create_cascade
-                pipeline = create_cascade(person_model_path, model_path.strip(), device,
+                pipeline = create_cascade(person_model_path, model_path.strip(), device, imgsz=profiles.IMGSZ,
                                           confidence=st.session_state.confidence, iou=st.session_state.iou)
                 detector = pipeline.detector
             else:
@@ -703,11 +703,17 @@ def main():
                                            disabled=running or source_type == PREVIEW)
             person_model_path = person_default
             if model_mode == "EPI treinado":
+                speed = st.radio("Velocidade", ["Precisa · 2 modelos", "Rápida · 1 modelo"], key="speed_mode",
+                                 disabled=running, help="Rápida usa a classe Person do próprio modelo de EPI "
+                                 "(~40% mais FPS). Ótima em cenas de obra; em outros ambientes pode perder pessoas.")
                 person_model_path = _model_path_input("Modelo de pessoas — primeira etapa", default=person_default,
-                                                     key=f"person_model_{backend}", disabled=running)
+                                                     key=f"person_model_{backend}",
+                                                     disabled=running or speed.startswith("Rápida"))
+                if speed.startswith("Rápida"):
+                    person_model_path = model_path
             if use_openvino:
                 device = "cpu"
-                st.caption("OpenVINO usa CPU com os dois modelos em 640 pixels; não usa quantização.")
+                st.caption("OpenVINO otimizado para CPU, modelos em 480 pixels; não usa quantização.")
                 if not profiles.openvino_available():
                     st.warning("Perfil OpenVINO indisponível: faltam a dependência ou os modelos exportados. Use PyTorch.")
             else:

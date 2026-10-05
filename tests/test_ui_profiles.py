@@ -6,7 +6,7 @@ from epi_monitor.ui import profiles
 @pytest.fixture
 def artifacts(monkeypatch, tmp_path):
     person, ppe = tmp_path / "person", tmp_path / "ppe"
-    for path, stem in ((person, "yolo11n"), (ppe, "epi")):
+    for path, stem in ((person, "yolo11n_480"), (ppe, "epi_480")):
         path.mkdir()
         for file in (f"{stem}.xml", f"{stem}.bin", "metadata.yaml"):
             (path / file).write_text("fixture", encoding="utf-8")
@@ -25,9 +25,9 @@ def test_recommended_profile_respects_accelerator_and_complete_artifacts(monkeyp
 def test_incomplete_artifact_or_missing_runtime_keeps_pytorch(monkeypatch, artifacts):
     monkeypatch.setattr(profiles, "_automatic_device", lambda: "cpu")
     person, ppe = artifacts
-    (ppe / "epi.bin").write_bytes(b"")
+    (ppe / "epi_480.bin").write_bytes(b"")
     assert not profiles.openvino_available()
     assert profiles.recommended_profile() == profiles.PYTORCH
-    (ppe / "epi.bin").write_bytes(b"weights")
+    (ppe / "epi_480.bin").write_bytes(b"weights")
     monkeypatch.setattr(profiles, "find_spec", lambda name: None)
     assert profiles.recommended_profile() == profiles.PYTORCH

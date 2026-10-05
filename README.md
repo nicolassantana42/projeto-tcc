@@ -12,7 +12,10 @@ Imagens de teste prontas: `data/datasets/images/test/` (ex.: `image536.jpg`, `im
 
 ### Modelo ativo: `models/ppe/epi.pt`
 
-YOLO11n treinado em **Construction-PPE** (10 + 40 épocas, CPU, 480 px; `runs/train/ppe_epi3`). Perfil CPU usa `models/ppe/epi_openvino_model` (FP32, ~8 FPS na cascata nesta máquina).
+YOLO11n treinado em **Construction-PPE** (10 + 40 épocas, CPU, 480 px; `runs/train/ppe_epi3`).
+
+**Desempenho (i7-1355U, só CPU):** perfil padrão OpenVINO com os dois modelos a 480 px ≈ **13 FPS** de cascata (antes 7 FPS a 640 px).
+Em *Avançado → Velocidade → Rápida · 1 modelo* ≈ **18 FPS** (usa a classe Person do próprio modelo de EPI; ideal em cenas de obra, pode perder pessoas em outros ambientes).
 
 Teste (141 imagens nunca vistas no treino), mAP50:
 

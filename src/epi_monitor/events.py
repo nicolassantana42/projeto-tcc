@@ -292,6 +292,21 @@ class EventStore:
             _atomic_json(folder / "event.json", event)
             self._prune_after_write()
 
+    REVIEW_STATUSES = ("confirmed", "dismissed")
+
+    def set_review(self, event_id: str, status: str, note: str = "") -> dict:
+        """Record the analyst's decision: a confirmed violation or a false positive."""
+        if status not in self.REVIEW_STATUSES:
+            raise ValueError("Revisão inválida; use confirmed ou dismissed.")
+        with self._lock:
+            folder = self._folder(event_id)
+            event = self._read(folder)
+            if event is None:
+                raise FileNotFoundError("Ocorrência não encontrada; pode ter sido removida pela retenção.")
+            event["review"] = {"status": status, "note": str(note)[:500], "reviewed_at_utc": _utc_now()}
+            _atomic_json(folder / "event.json", event)
+            return event
+
 
 @dataclass
 class _Track:

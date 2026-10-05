@@ -27,7 +27,9 @@ verifica integridade, não comprova precisão no local de instalação.
 |---|---|
 | `yolo11n.pt` | Detector de pessoas COCO, primeiro estágio |
 | `ppe/epi.pt` | **Padrão**: Construction-PPE, capacete/colete/bota (`runs/train/ppe_epi3`) |
-| `ppe/epi_openvino_model/` | Export OpenVINO FP32 640 do `epi.pt`, perfil CPU padrão |
+| `ppe/epi_480_openvino_model/` | Export OpenVINO FP32 480 do `epi.pt`, **perfil CPU padrão** |
+| `yolo11n_480_openvino_model/` | Export OpenVINO FP32 480 do detector de pessoas, perfil CPU padrão |
+| `ppe/epi_openvino_model/` | Export OpenVINO FP32 640 do `epi.pt` (mais lento; comparação) |
 | `ppe/absence.pt` | Segundo estágio padrão; ajuste local com ausência de colete |
 | `yolo11n_openvino_model/` | Primeiro estágio OpenVINO FP32 em 640 |
 | `ppe/absence_openvino_model/` | Segundo estágio OpenVINO FP32 em 640; não é INT8 |
