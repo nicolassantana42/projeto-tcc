@@ -354,7 +354,7 @@ def _equipment_status(item, equipment):
     return "uncertain", "⚠️ Não detectado"
 
 
-def _render_ppe_assessments(result):
+def _render_ppe_assessments(result, details=True):
     if not result.assessments:
         st.markdown(theme.empty_state("Nenhuma pessoa no quadro",
                                       "O detector de EPIs só roda quando o primeiro estágio encontra pessoas.", "users"),
@@ -372,6 +372,8 @@ def _render_ppe_assessments(result):
                      f'<div class="person-name"><span class="avatar">P{item.index}</span>Pessoa {item.index}</div>'
                      f'{theme.badge(STATUS_NAMES[item.status], item.status)}</div><div class="eq">{cells}</div></div>')
     st.markdown("".join(cards), unsafe_allow_html=True)
+    if not details:
+        return  # A table per live frame costs more than the inference itself.
     with st.expander("Detalhes técnicos da avaliação"):
         st.dataframe([{
             "Pessoa": item.index,
@@ -515,15 +517,12 @@ def _live_panel():
         count = theme.badge(str(len(result.assessments)), "neutral") if has_metrics else ""
         st.markdown(theme.card_title("Por pessoa", "clipboard", count), unsafe_allow_html=True)
         if has_metrics:
-            _render_ppe_assessments(result)
+            _render_ppe_assessments(result, details=not active or st.session_state.active_metadata.get("source") == "Imagem")
             _render_ppe_capabilities()
         else:
             st.markdown(theme.empty_state("Aguardando análise", "Cada pessoa detectada aparece aqui com o "
                                           "estado de capacete, colete e bota.", "users"), unsafe_allow_html=True)
 
-    with st.container(border=True):
-        st.markdown(theme.card_title("Conformidade ao longo do tempo", "chart"), unsafe_allow_html=True)
-        _compliance_chart()
 
 
 def _show_preview(frame=None):
@@ -612,16 +611,20 @@ def _model_tab():
     with left, st.container(border=True):
         st.markdown(theme.card_title("mAP50 no conjunto de teste", "chart",
                                      theme.badge(f'{metrics["images"]} imagens inéditas', "info")), unsafe_allow_html=True)
-        rows = [{"Classe": theme.EQUIPMENT[kind], "Modelo": version, "mAP50": value}
-                for kind, values in classes.items()
-                for version, value in (("Anterior", metrics["baseline"][kind]), ("Atual", values["mAP50"]))]
+        # Optional third series: same data/epochs with another architecture (e.g. YOLOv5n).
+        versions = {"Anterior": metrics["baseline"], **{name: {k: v["mAP50"] for k, v in values.items()}
+                    for name, values in metrics.get("comparison", {}).items()},
+                    "Atual": {k: v["mAP50"] for k, v in classes.items()}}
+        rows = [{"Classe": theme.EQUIPMENT[kind], "Modelo": version, "mAP50": values[kind]}
+                for version, values in versions.items() for kind in classes if kind in values]
         chart = alt.Chart(pd.DataFrame(rows)).mark_bar(cornerRadiusTopLeft=6, cornerRadiusTopRight=6).encode(
             x=alt.X("Classe:N", title=None, sort=list(theme.EQUIPMENT.values()),
                     axis=alt.Axis(labelAngle=0, labelColor="#4B5563")),
-            xOffset="Modelo:N",
+            xOffset=alt.XOffset("Modelo:N", sort=list(versions)),
             y=alt.Y("mAP50:Q", scale=alt.Scale(domain=[0, 1]), title=None,
                     axis=alt.Axis(format="%", gridColor="#F3F4F6", labelColor="#6B7280")),
-            color=alt.Color("Modelo:N", scale=alt.Scale(domain=["Anterior", "Atual"], range=["#CBD5E1", "#0F766E"]),
+            color=alt.Color("Modelo:N", scale=alt.Scale(
+                domain=list(versions), range=["#CBD5E1", *["#F59E0B"] * (len(versions) - 2), "#0F766E"]),
                             legend=alt.Legend(orient="top", title=None, labelColor="#4B5563")),
             tooltip=["Classe", "Modelo", alt.Tooltip("mAP50:Q", format=".1%")],
         ).properties(height=260).configure_view(strokeWidth=0)
@@ -668,7 +671,7 @@ def main():
             if file_mode == "Enviar arquivo":
                 upload = st.file_uploader("Vídeo", type=["mp4", "avi", "mov", "mkv", "webm"], disabled=running)
             else:
-                video_path = st.text_input("Caminho do vídeo", placeholder="C:/videos/camera.mp4", disabled=running)
+                video_path = st.text_input("Caminho do vídeo", placeholder="data/demo/demo_obra.mp4", disabled=running)
         elif source_type == "Imagem":
             file_mode = st.radio("Abrir imagem", ["Enviar arquivo", "Caminho no computador"], disabled=running, horizontal=True)
             if file_mode == "Enviar arquivo":
@@ -770,6 +773,14 @@ def main():
         def live_fragment():
             _live_panel()
         live_fragment()
+
+        # The chart is the most expensive element; refreshing it every 2 s keeps the live view fluid.
+        @st.fragment(run_every=2.0 if running else None)
+        def chart_fragment():
+            with st.container(border=True):
+                st.markdown(theme.card_title("Conformidade ao longo do tempo", "chart"), unsafe_allow_html=True)
+                _compliance_chart()
+        chart_fragment()
         actions = st.columns([1, 1, 3])
         if actions[0].button("Salvar imagem agora", icon=":material/photo_camera:", width="stretch",
                              disabled=st.session_state.latest_frame is None or st.session_state.get("illustrative", True)):

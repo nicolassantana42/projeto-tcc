@@ -48,7 +48,7 @@ def parser() -> argparse.ArgumentParser:
     detect.add_argument("--ppe-model", default=DEFAULT_PPE_MODEL)
     detect.add_argument("--boots-model", help="modelo auxiliar opcional de botas; experimental e com custo adicional")
     detect.add_argument("--device", default="auto")
-    detect.add_argument("--imgsz", type=positive, default=640)
+    detect.add_argument("--imgsz", type=positive, default=480, help="480 = tamanho do treino; ~2x mais rápido que 640 em CPU")
     detect.add_argument("--confidence", type=probability, default=.4)
     detect.add_argument("--iou", type=probability, default=.45)
     detect.add_argument("--max-frames", type=positive, default=300)

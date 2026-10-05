@@ -37,7 +37,7 @@ def main() -> int:
         if subprocess.run([str(python), "-m", "pip", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode:
             subprocess.run([str(python), "-m", "ensurepip", "--upgrade"], check=True)
         if not stamp.exists() or stamp.read_text() != digest:
-            subprocess.run([str(python), "-m", "pip", "install", "-e", ".[dev]"], cwd=ROOT, check=True)
+            subprocess.run([str(python), "-m", "pip", "install", "-e", ".[dev,openvino]"], cwd=ROOT, check=True)
             stamp.write_text(digest)
         if not args.no_download and not (ROOT / "models/yolo11n.pt").is_file():
             subprocess.run([str(python), "-m", "epi_monitor", "download"], cwd=ROOT, check=True)
