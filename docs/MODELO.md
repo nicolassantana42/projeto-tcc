@@ -53,6 +53,17 @@ python -c "from ultralytics import YOLO; YOLO('models/ppe/epi_480.pt').export(fo
 del models\ppe\epi_480.pt
 ```
 
+## O que não deu certo
+
+| Tentativa | Resultado medido | Decisão |
+|---|---|---|
+| Modelo público YOLOv8n de EPI | baixa detecção de coletes | descartado |
+| `absence.pt` (YOLO11n, 10 épocas no RF100 Construction Safety) | sem capacete: recall 25% (6 de 24); sem colete: recall 63,9% | descartado: não detecta bota |
+| 1º treino no Construction-PPE (10 épocas) | mAP50 53,1% nas 11 classes (validação) | usado como ponto de partida do treino final |
+| Quantização INT8 (OpenVINO) | 31,2 FPS contra 36,4 FPS do FP32 | descartada: não ficou mais rápida |
+| Um só modelo para pessoas e EPIs | 18 FPS, mas achou 2 de 4 pessoas numa cena de rua | mantido só como opção "Rápida" |
+| Comparação com YOLOv5n | interrompida na 1ª época | decisão de focar no YOLO11 |
+
 ## Limitações
 
 - Dataset público, sem imagens do local de uso.
