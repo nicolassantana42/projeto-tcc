@@ -173,7 +173,7 @@ def configure_camera(app, *, telegram=False):
 def test_initial_screen_explains_capture_and_channels_stay_disabled(dashboard):
     app = dashboard
     assert app.selectbox(key="source_type").value == "Imagem"
-    assert [tab.label for tab in app.tabs] == ["Monitoramento", "Ocorrências", "Alertas e integrações", "Modelo"]
+    assert [tab.label for tab in app.tabs] == ["Monitor", "Ocorrências", "Configurações"]
     assert any("clique em ▶ Iniciar" in info.value for info in app.info)
     assert app.session_state["runtime"] is None
     assert button(app, "Salvar imagem agora").disabled

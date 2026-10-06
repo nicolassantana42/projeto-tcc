@@ -12,13 +12,12 @@ ficam disponíveis na visualização simples. O caminho atual envia diretamente
 
 ## Onde aparecem as pessoas detectadas
 
-1. Em **Alertas e integrações**, informe **Nome da câmera** e **Local / setor**
+1. Em **Configurações**, informe **Nome da câmera** e **Local / setor**
    reconhecíveis e clique **Salvar configurações**.
-2. Abra **Monitoramento** e selecione uma fonte. Para capacetes e coletes, use
+2. Abra **Monitor** e selecione uma fonte. Para capacetes e coletes, use
    o modo EPI com dois modelos: o detector de pessoas e pesos EPI compatíveis.
-   Os pesos de trabalho ficam em `models/ppe/absence.pt`; consulte o ajuste
-   com classes de ausência e seus limites em [VALIDATION.md](VALIDATION.md). **Demo COCO** com `models/yolo11n.pt` demonstra
-   apenas pessoas/objetos gerais; esses pesos não reconhecem EPIs.
+   Os pesos ficam em `models/ppe/epi.pt` (capacete, colete e bota; ver [MODELO.md](MODELO.md)).
+   **Demo COCO** (em *Avançado*) detecta apenas pessoas; não reconhece EPIs.
 3. Clique **Iniciar**. O quadro da câmera mostra as caixas, classes e confiança
    das detecções. Logo abaixo, a tabela separa **Capacete** e **Colete** por pessoa:
    **Detectado**, **Ausência explícita** ou **Inconclusivo**. Uma coluna adicional
@@ -80,20 +79,11 @@ Imagens estáticas são observações únicas, identificadas como tal; não simu
 persistência temporal. A CLI `detect --save-events` também pode salvá-las e
 nunca ativa os canais da interface.
 
-O modelo atual `models/ppe/absence.pt` inclui `NO-Safety Vest` e `NO-Hardhat`,
-normalizadas para `no_vest` e `no_helmet`. Elas podem produzir uma evidência
-explícita de ausência de colete ou capacete. A evidência precisa ser associada
-à pessoa sem ambiguidade e passar pela mesma confirmação temporal dos demais
-alertas. Os pesos históricos `models/ppe/best.pt` e seu INT8 foram treinados
-em Construction-PPE, sem `no_vest`; se escolhidos manualmente, não passam a
-reconhecer ausência de colete. A mera falta de uma caixa nunca é convertida
-em infração.
-
-Os alertas continuam sujeitos a omissões e falsos positivos. No teste público
-RF100, o recall de sem capacete do modelo atual foi 25% e o de sem colete,
-63,93%; essas medidas são de caixas, não da entrega ou qualidade dos alertas
-por pessoa. Ainda falta validar o ambiente real. Consulte
-[VALIDATION.md](VALIDATION.md) e revise a evidência recebida antes de agir.
+O modelo `models/ppe/epi.pt` tem as classes explícitas `no_helmet` e `no_boots`.
+Elas geram alerta de ausência quando associadas à pessoa sem ambiguidade e
+confirmadas no tempo. O dataset não tem "sem colete": colete não visto fica
+inconclusivo e nunca vira infração. Os alertas podem ter omissões e falsos
+positivos; revise a evidência e use **Confirmar / Descartar** em Ocorrências.
 
 ## Onde ficam as imagens
 
@@ -141,7 +131,7 @@ de relatórios mantém os arquivos fora do ciclo de vida do container.
    o bot e envie um comando dirigido a ele no grupo, por exemplo
    `/start@nome_do_seu_bot`.
 3. Obtenha o identificador do chat conforme o procedimento abaixo.
-4. Em **Alertas e integrações**, preencha **Token do bot** e **Chat ID de destino**. Informe
+4. Em **Configurações**, preencha **Token do bot** e **Chat ID de destino**. Informe
    também câmera e local para que a evidência seja útil para quem a receber.
 5. Marque **Ativar Telegram para novas ocorrências** e clique **Salvar
    configurações** antes de iniciar o monitoramento. O canal começa desativado;

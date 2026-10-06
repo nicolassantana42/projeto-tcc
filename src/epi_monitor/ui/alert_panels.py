@@ -141,12 +141,11 @@ def configured_senders() -> dict:
 def render_alert_settings(running: bool):
     settings = st.session_state.alert_settings
     telegram, email = st.session_state.telegram_config, st.session_state.email_config
-    st.subheader("Câmera, evidências e integrações")
+    st.markdown("**Câmera e alertas**")
     if notice := st.session_state.pop("alert_settings_notice", None):
         st.toast("Configurações salvas.", icon=":material/check_circle:")
         st.success(notice)
-    st.caption("Preencha, salve e inicie o monitoramento. Tokens e senhas ficam somente nesta sessão, "
-               "ou podem ser carregados do arquivo local .streamlit/secrets.toml.")
+    st.caption("Tokens e senhas ficam somente nesta sessão (ou em .streamlit/secrets.toml).")
     if running:
         st.info("Pare o monitoramento para alterar os destinos e a política de ocorrências.")
     with st.form("alert_configuration"):
@@ -160,7 +159,6 @@ def render_alert_settings(running: bool):
         trigger = st.selectbox("Quando registrar uma ocorrência", ["ppe", "person"],
                                index=["ppe", "person"].index(settings["trigger"]),
                                format_func=lambda item: "Possível ausência de EPI (modelo treinado)" if item == "ppe" else "Pessoa detectada (também funciona com COCO)", disabled=running)
-        st.caption("COCO detecta pessoas, mas não confirma ausência de EPI. 'Pessoa detectada' é um aviso de presença, não uma infração.")
         a, b, c = st.columns(3)
         confirmation = a.number_input("Confirmação contínua (segundos)", min_value=.1, max_value=60.0,
                                       value=float(settings["confirmation_seconds"]), step=.5, disabled=running)
@@ -168,18 +166,11 @@ def render_alert_settings(running: bool):
                                   value=float(settings["cooldown_seconds"]), step=10.0, disabled=running)
         max_events = c.number_input("Máximo de ocorrências salvas", min_value=10, max_value=10000,
                                     value=int(settings["max_events"]), step=10, disabled=running)
-        st.caption("A imagem é salva após confirmação por continuidade espacial. O intervalo limita novos registros por câmera nesta sessão; "
-                   "os mais antigos são removidos quando o limite de armazenamento é atingido, preservando envios pendentes.")
-        st.caption("Em vídeo, a confirmação usa o tempo da filmagem; em câmera/RTSP, usa o tempo entre observações. "
-                   "Imagens estáticas registram uma observação única. O horário salvo é o momento da análise em UTC.")
         st.markdown("#### Telegram")
         telegram_enabled = st.checkbox("Ativar Telegram para novas ocorrências", value=telegram.enabled, disabled=running)
         token = st.text_input("Token do bot", value=telegram.token, type="password", disabled=running)
         chat_id = st.text_input("Chat ID de destino", value=telegram.chat_id, disabled=running)
-        st.caption("Crie o bot no @BotFather, abra a conversa com ele e envie /start. Em grupo, adicione o bot. "
-                   "O destinatário recebe foto + câmera + local + horário + motivo.")
-        st.caption("Para consultar o Chat ID sem enviar mensagens, siga docs/ALERTS.md → Descobrir o Chat ID localmente. "
-                   "Preserve o sinal negativo de IDs de grupos.")
+        st.caption("Crie o bot no @BotFather e envie /start para ele. Guia: docs/ALERTS.md.")
         with st.expander("E-mail / Outlook (opcional)"):
             email_enabled = st.checkbox("Ativar e-mail para novas ocorrências", value=email.enabled, disabled=running)
             host = st.text_input("Servidor SMTP", value=email.host, disabled=running)
@@ -227,8 +218,7 @@ def render_alert_settings(running: bool):
         st.warning("Canal configurado, mas o envio automático está desligado porque 'Salvar ocorrências automaticamente' está desmarcado.")
     if st.button("Enviar teste aos canais ativos", disabled=running or not enabled):
         _send_test()
-    st.caption("O botão de teste faz um envio real de uma imagem desenhada, com o nome/local configurados. "
-               "Consulte o resultado na aba Ocorrências. Salvar configurações não envia mensagens.")
+    st.caption("O teste faz um envio real; salvar configurações não envia mensagens.")
 
 
 def _send_test():
@@ -251,9 +241,8 @@ def _send_test():
         st.error("Não foi possível preparar o teste. Verifique os campos e a permissão de escrita em reports.")
 
 
-KIND_LABELS = {"ppe": ("Sem EPI", "unsafe"), "person": ("Pessoa", "info"), "manual": ("Manual", "neutral")}
+KIND_LABELS = {"ppe": "Sem EPI", "person": "Pessoa", "manual": "Manual"}
 DELIVERY_LABELS = {"pending": "Na fila", "accepted": "Aceito pelo provedor", "failed": "Falhou", "queue_full": "Fila cheia"}
-PAGE_SIZE = 10
 REVIEW_LABELS = {"confirmed": ("Confirmada", "unsafe"), "dismissed": ("Falso positivo", "neutral"), None: ("Pendente", "uncertain")}
 
 
@@ -273,122 +262,78 @@ def _local_time(event: dict) -> str:
 def render_occurrences():
     from epi_monitor.ui import theme
 
-    head, refresh = st.columns([4, 1.4], vertical_alignment="bottom")
-    head.markdown(theme.card_title("Imagens salvas e histórico", "folder"), unsafe_allow_html=True)
-    refresh.button("Atualizar histórico", key="refresh_occurrences", icon=":material/refresh:", width="stretch")
-    st.caption(f"Pasta local: {reports_root() / 'occurrences'} · cada ocorrência tem snapshot.jpg e event.json.")
     try:
         store = event_store()
-        events = store.list_events(limit=200)
+        events = store.list_events(limit=100)
     except OSError:
         st.error("Não foi possível ler o histórico. Verifique a pasta reports e as permissões de acesso.")
         return
-    if not events:
-        st.markdown(theme.empty_state(
-            "Nenhuma ocorrência ainda",
-            "Quando alguém aparecer sem EPI, a foto e os dados ficam registrados aqui. "
-            "Você também pode usar 'Salvar imagem agora' no monitoramento.", "folder",
-            ("Inicie uma fonte", "Aguarde um alerta", "Revise aqui")), unsafe_allow_html=True)
-        return
-
+    head, refresh = st.columns([4, 1], vertical_alignment="center")
     reviewed = [_review(event) for event in events]
     confirmed, dismissed = reviewed.count("confirmed"), reviewed.count("dismissed")
-    decided = confirmed + dismissed
-    cards = [
-        theme.kpi("Ocorrências", str(len(events)), "folder", "teal", "registradas neste computador"),
-        theme.kpi("Pendentes de revisão", str(len(events) - decided), "clipboard", "blue", "aguardando o analista"),
-        theme.kpi("Confirmadas", str(confirmed), "alert", "red", "irregularidades reais"),
-        theme.kpi("Precisão revisada", f"{100 * confirmed / decided:.0f}<small>%</small>" if decided else "—", "shield",
-                  "green", f"confirmadas ÷ revisadas ({decided})" if decided else "revise ocorrências para medir"),
-    ]
-    for column, card in zip(st.columns(4, gap="medium"), cards):
-        column.markdown(card, unsafe_allow_html=True)
-    st.write("")
-
-    search_col, kind_col = st.columns([3, 1.3])
-    query = search_col.text_input("Buscar", placeholder="Câmera, local, motivo ou ID", key="occurrence_search",
-                                  label_visibility="collapsed")
-    kinds = kind_col.multiselect("Tipo", list(KIND_LABELS), format_func=lambda k: KIND_LABELS[k][0],
-                                 key="occurrence_kinds", placeholder="Todos os tipos", label_visibility="collapsed")
-    needle = query.strip().lower()
-    filtered = [event for event in events
-                if (not kinds or event.get("kind") in kinds)
-                and (not needle or needle in " ".join(str(event.get(field, "")) for field in
-                                                      ("camera_name", "location", "id", "reasons")).lower())]
-    if not filtered:
-        st.markdown(theme.empty_state("Nada encontrado", "Nenhuma ocorrência corresponde à busca. "
-                                      "Tente outro termo ou limpe os filtros.", "scan"), unsafe_allow_html=True)
+    precision = f" · precisão revisada {100 * confirmed / (confirmed + dismissed):.0f}%" if confirmed + dismissed else ""
+    head.markdown(f"**{len(events)} ocorrência(s)** · {len(events) - confirmed - dismissed} pendente(s) de revisão{precision}")
+    refresh.button("Atualizar histórico", key="refresh_occurrences", width="stretch")
+    if not events:
+        st.info("Nenhuma ocorrência salva. Elas aparecem aqui quando alguém é detectado sem EPI, "
+                "ou ao usar 'Salvar imagem agora' no Monitor.")
         return
-    pages = max(1, -(-len(filtered) // PAGE_SIZE))
-    page = st.session_state.get("occurrence_page", 1)
-    page = min(max(1, page), pages)
-    rows = filtered[(page - 1) * PAGE_SIZE: page * PAGE_SIZE]
+
+    query = st.text_input("Buscar", placeholder="Câmera, local, motivo ou ID", key="occurrence_search",
+                          label_visibility="collapsed").strip().lower()
+    filtered = [event for event in events if not query or query in " ".join(
+        str(event.get(field, "")) for field in ("camera_name", "location", "id", "reasons")).lower()]
+    if not filtered:
+        st.caption("Nenhuma ocorrência corresponde à busca.")
+        return
     st.dataframe([{
         "Data e hora": _local_time(event),
-        "Tipo": KIND_LABELS.get(event.get("kind"), (str(event.get("kind")), ""))[0],
+        "Tipo": KIND_LABELS.get(event.get("kind"), str(event.get("kind"))),
         "Câmera": event.get("camera_name", ""),
         "Local": event.get("location", ""),
-        "Pessoas": event.get("counts", {}).get("person", 0),
         "Revisão": REVIEW_LABELS[_review(event)][0],
-        "Envios": ", ".join(f"{channel}: {DELIVERY_LABELS.get(item.get('status'), item.get('status'))}"
-                            for channel, item in event.get("deliveries", {}).items()) or "Somente local",
         "ID": event["id"][:8],
-    } for event in rows], hide_index=True, width="stretch")
-    info, prev_col, next_col = st.columns([4, 1, 1], vertical_alignment="center")
-    info.caption(f"{len(filtered)} ocorrência(s) · página {page} de {pages}")
-    if prev_col.button("‹ Anterior", key="occurrence_prev", disabled=page <= 1, width="stretch"):
-        st.session_state.occurrence_page = page - 1
-        st.rerun(scope="fragment")
-    if next_col.button("Próxima ›", key="occurrence_next", disabled=page >= pages, width="stretch"):
-        st.session_state.occurrence_page = page + 1
-        st.rerun(scope="fragment")
+    } for event in filtered], hide_index=True, width="stretch", height=min(38 * len(filtered) + 40, 300))
 
     labels = {event["id"]: f"{_local_time(event)} · {event.get('camera_name', '')} · {event['id'][:8]}" for event in filtered}
     selected = st.selectbox("Ocorrência", list(labels), format_func=labels.get, key="selected_occurrence")
     event = next(item for item in filtered if item["id"] == selected)
     image_col, detail_col = st.columns([1.6, 1], gap="large")
+    content = None
     with image_col:
         try:
             content = Path(event["snapshot_path"]).read_bytes()
             st.image(content, width="stretch")
         except OSError:
-            content = None
             st.warning("A imagem foi removida ou está indisponível no disco.")
-    with detail_col, st.container(border=True):
-        label, tone = KIND_LABELS.get(event.get("kind"), (str(event.get("kind")), "neutral"))
-        st.markdown(theme.card_title("Detalhes", "clipboard", theme.badge(label, tone)), unsafe_allow_html=True)
-        st.markdown(f"**{event.get('camera_name', '')}** · {event.get('location', '')}  \n{_local_time(event)}")
-        st.write(" · ".join(event.get("reasons", [])))
+    with detail_col:
         review_label, review_tone = REVIEW_LABELS[_review(event)]
-        st.markdown(f"Revisão do analista: {theme.badge(review_label, review_tone)}", unsafe_allow_html=True)
+        st.markdown(f"**{event.get('camera_name', '')}** · {event.get('location', '')}  \n{_local_time(event)}")
+        st.markdown(f"{KIND_LABELS.get(event.get('kind'), '')} · revisão: {theme.pill(review_label, review_tone)}",
+                    unsafe_allow_html=True)
+        st.write(" · ".join(event.get("reasons", [])))
         confirm_col, dismiss_col = st.columns(2)
         decision = None
-        if confirm_col.button("Confirmar", key=f"confirm_{event['id']}", icon=":material/check:", width="stretch",
-                              type="primary", disabled=_review(event) == "confirmed"):
+        if confirm_col.button("Confirmar", key=f"confirm_{event['id']}", width="stretch", type="primary",
+                              disabled=_review(event) == "confirmed"):
             decision = "confirmed"
-        if dismiss_col.button("Descartar", key=f"dismiss_{event['id']}", icon=":material/close:", width="stretch",
+        if dismiss_col.button("Descartar", key=f"dismiss_{event['id']}", width="stretch",
                               help="Marca como falso positivo; o registro é mantido para estatística.",
                               disabled=_review(event) == "dismissed"):
             decision = "dismissed"
         if decision is not None:
             try:
                 store.set_review(event["id"], decision)
-                st.toast("Irregularidade confirmada." if decision == "confirmed" else "Marcada como falso positivo.",
-                         icon=":material/check_circle:")
                 st.rerun(scope="fragment")
             except (OSError, ValueError):
                 st.error("Não foi possível salvar a revisão. Verifique a pasta reports.")
-        st.caption(f"ID: {event['id']} · Tipo: {event.get('kind')} · Modo: {event.get('model_mode')}")
-        deliveries = event.get("deliveries", {})
-        if not deliveries:
-            st.caption("Armazenado localmente. Nenhum envio registrado.")
-        for channel, delivery in deliveries.items():
+        for channel, delivery in event.get("deliveries", {}).items():
             status = delivery.get("status", "")
-            st.write(f"{channel}: {DELIVERY_LABELS.get(status, status)} — {delivery.get('detail', '')}")
+            st.caption(f"{channel}: {DELIVERY_LABELS.get(status, status)} — {delivery.get('detail', '')}")
         if content is not None:
             st.download_button("Baixar imagem JPG", content, file_name=f"{event['id']}.jpg", mime="image/jpeg",
-                               key=f"photo_{event['id']}", icon=":material/download:", width="stretch")
+                               key=f"photo_{event['id']}", width="stretch")
         st.download_button("Baixar registro JSON", json.dumps(event, ensure_ascii=False, indent=2),
                            file_name=f"{event['id']}.json", mime="application/json", key=f"json_{event['id']}",
                            width="stretch")
-        st.caption("Aceito pelo provedor confirma a resposta da API/SMTP; não confirma leitura ou entrega.")
+        st.caption(f"ID: {event['id']} · arquivos em {reports_root() / 'occurrences'}")

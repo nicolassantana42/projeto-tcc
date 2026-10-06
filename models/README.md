@@ -1,53 +1,11 @@
 # Modelos
 
-O padrão nativo da cascata é `yolo11n.pt` para pessoas e **`ppe/epi.pt`** (capacete, colete e bota) para EPI. `ppe/absence.pt` fica como alternativa com "sem colete".
-O primeiro é COCO oficial: `python -m epi_monitor download` prepara esse arquivo,
-que não reconhece EPIs. O segundo é o YOLO11n ajustado localmente no RF100 com
-capacete, colete e suas ausências explícitas. O download de COCO não o produz.
-
-Na interface desta instalação CPU, o perfil automático usa os exports
-**OpenVINO FP32 em 640** dos dois pesos, preparados e reavaliados em 29/09.
-Sem runtime/artefatos OpenVINO ou com GPU disponível, recomenda PyTorch.
-[Configuração e validação](../docs/PRESENTATION_CHECK.md).
-
-Prepare dados/pesos e execute o treinamento conforme
-[docs/ABSENCE_DATA.md](../docs/ABSENCE_DATA.md). Após revisar a validação:
-
-```bash
-python scripts/promote_absence_model.py --run-dir runs/train/ppe_absence
-```
-
-Execute na raiz do repositório. O script confere SHA-256 e classes do checkpoint
-com `training.json`, exige classes únicas de capacete/colete e suas ausências
-e publica `ppe/absence.pt` com `ppe/absence.provenance.json`. Ele reutiliza
-conteúdo idêntico e recusa sobrescrever arquivos divergentes. A promoção
-verifica integridade, não comprova precisão no local de instalação.
-
-| Arquivo | Papel |
+| Arquivo | Uso |
 |---|---|
-| `yolo11n.pt` | Detector de pessoas COCO, primeiro estágio |
-| `ppe/epi.pt` | **Padrão**: Construction-PPE, capacete/colete/bota (`runs/train/ppe_epi3`) |
-| `ppe/epi_480_openvino_model/` | Export OpenVINO FP32 480 do `epi.pt`, **perfil CPU padrão** |
-| `yolo11n_480_openvino_model/` | Export OpenVINO FP32 480 do detector de pessoas, perfil CPU padrão |
-| `ppe/epi_openvino_model/` | Export OpenVINO FP32 640 do `epi.pt` (mais lento; comparação) |
-| `ppe/absence.pt` | Segundo estágio padrão; ajuste local com ausência de colete |
-| `yolo11n_openvino_model/` | Primeiro estágio OpenVINO FP32 em 640 |
-| `ppe/absence_openvino_model/` | Segundo estágio OpenVINO FP32 em 640; não é INT8 |
-| `ppe/absence-base.pt` | Ponto de partida externo YOLO11n; origem e hash preservados |
-| `ppe/best.pt` | Experimento histórico Construction-PPE de 11 classes, sem `no_vest` |
-| `ppe/best_int8_openvino_model/` | INT8 do modelo histórico; não é export do `absence.pt` |
-| `ppe/baseline-public.pt` | Antigo candidato externo YOLOv8n, mantido para comparação |
+| `yolo11n.pt` | Detector de pessoas (COCO oficial), 1º estágio — perfil PyTorch |
+| `yolo11n_480_openvino_model/` | Mesmo detector exportado para OpenVINO 480 px — perfil padrão em CPU |
+| `ppe/epi.pt` | Detector de EPIs (YOLO11n treinado no Construction-PPE): capacete, colete, bota |
+| `ppe/epi_480_openvino_model/` | Mesmo detector exportado para OpenVINO 480 px — perfil padrão em CPU |
+| `ppe/epi.metrics.json` | Métricas no conjunto de teste, exibidas na interface |
 
-O `absence.pt` tem dez saídas, porém o experimento anotou e avaliou somente
-cinco. Não há evidência de qualidade para as outras cinco classes. O recall
-de sem capacete permanece baixo e foram observadas regressões no dataset
-anterior; veja [resultados e limites](../docs/VALIDATION.md).
-
-Novos exports de `absence.pt` devem usar seus próprios nomes e ser avaliados
-contra o mesmo checkpoint PyTorch. Os exports históricos não foram atualizados
-pela promoção. Instruções de calibração e avaliação em
-[docs/ML.md](../docs/ML.md).
-
-Pesos, ONNX, TensorRT e OpenVINO são ignorados pelo Git. Registre a origem,
-licença, classes, hash e dataset de cada modelo entregue. Artefatos TensorRT
-devem ser gerados no ambiente NVIDIA de destino.
+Estes arquivos são versionados no Git para o projeto rodar logo após o clone. Treino, métricas e exportação: [docs/MODELO.md](../docs/MODELO.md).

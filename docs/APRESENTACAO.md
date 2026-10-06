@@ -12,12 +12,12 @@
 ## Roteiro da demonstração (≈ 7 min)
 
 1. **Problema** (30 s): fiscalização manual de EPI é cara e falha; proposta é apoiar o fiscal, não substituí-lo.
-2. **Como funciona** (1 min): botão *Como funciona* no topo → pipeline em 6 passos (pessoas → EPIs → associação → decisão → evidência).
+2. **Como funciona** (1 min): explicar o pipeline (pessoas → EPIs → associação por região do corpo → decisão por pessoa → ocorrência). Detalhes em `docs/MODELO.md`.
 3. **Imagem** (1 min): *Imagem → Caminho no computador →* `data/datasets/images/test/image611.jpg` → ▶ Iniciar. Mostrar os cards por pessoa (capacete, colete, bota).
-4. **Vídeo** (1,5 min): *Arquivo de vídeo →* `data/demo/demo_obra.mp4`. Mostrar KPIs mudando, FPS e o gráfico *Conformidade ao longo do tempo*.
+4. **Vídeo** (1,5 min): *Arquivo de vídeo → Caminho no computador →* `data/demo/demo_obra.mp4`. Mostrar os números (pessoas, EPIs completos, alertas, FPS) mudando.
 5. **Webcam** (1 min): mostrar detecção ao vivo (pessoa sem EPI → "Não detectado"; explicar a decisão conservadora).
-6. **Ocorrências** (1 min): foto + JSON salvos, envio ao Telegram, botões **Confirmar / Descartar** e a *Precisão revisada*.
-7. **Modelo** (1 min): aba *Modelo* → mAP50 por classe no teste, comparação com o modelo anterior (10 épocas).
+6. **Ocorrências** (1 min): foto + registro salvos, envio ao Telegram, botões **Confirmar / Descartar** e a precisão revisada.
+7. **Modelo** (1 min): rodapé da barra lateral mostra o mAP50 por classe; tabela completa em `docs/MODELO.md`.
 
 ## Perguntas prováveis da banca
 

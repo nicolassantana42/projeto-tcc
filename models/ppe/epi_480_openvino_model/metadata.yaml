@@ -1,0 +1,32 @@
+description: Ultralytics YOLO11n model trained on C:\projeto-tcc\projeto-tcc\runs\train\ppe_epi3\dataset.resolved.yaml
+author: Ultralytics
+date: '2026-10-05T07:44:42.588706'
+version: 8.3.203
+license: AGPL-3.0 License (https://ultralytics.com/license)
+docs: https://docs.ultralytics.com
+stride: 32
+task: detect
+batch: 1
+imgsz:
+- 480
+- 480
+names:
+  0: helmet
+  1: gloves
+  2: vest
+  3: boots
+  4: goggles
+  5: none
+  6: Person
+  7: no_helmet
+  8: no_goggle
+  9: no_gloves
+  10: no_boots
+args:
+  batch: 1
+  fraction: 0.3
+  half: false
+  int8: false
+  dynamic: false
+  nms: false
+channels: 3

@@ -43,4 +43,12 @@ violations/
 .DS_Store
 Thumbs.db
 Desktop.ini
-.venv-broken/
+
+# Modelos usados pela aplicação (versionados para o projeto rodar após o clone)
+!models/yolo11n.pt
+!models/ppe/epi.pt
+!models/yolo11n_480_openvino_model/
+!models/ppe/epi_480_openvino_model/
+!models/**/*.bin
+# Vídeo de demonstração
+!data/demo/demo_obra.mp4

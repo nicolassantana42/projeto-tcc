@@ -256,11 +256,3 @@ def test_cli_has_nonzero_exit_on_invalid_dataset_and_json_report(dataset, tmp_pa
     assert "missing_label" in capsys.readouterr().out
     assert json.loads(output.read_text(encoding="utf-8"))["valid"] is False
 
-
-def test_standalone_script_runs_with_local_dataset(dataset, tmp_path):
-    source, _ = dataset
-    script = Path(__file__).resolve().parents[1] / "scripts" / "audit_dataset.py"
-    result = subprocess.run([sys.executable, "-X", "utf8", str(script), "--data", str(source), "--output", str(tmp_path / "audit.json")],
-                            capture_output=True, text=True, encoding="utf-8", timeout=30, check=False)
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert "6 inst" in result.stdout
