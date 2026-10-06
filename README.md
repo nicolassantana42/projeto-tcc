@@ -12,7 +12,7 @@ Visão computacional para o TCC: **câmera/imagem → YOLO11 de pessoas → YOLO
 
 | Para testar | Fonte | Caminho |
 |---|---|---|
-| Vídeo | Arquivo de vídeo → *Caminho no computador* | `data/demo/demo_obra.mp4` |
+| Vídeo | Arquivo de vídeo → *Caminho no computador* | `data/demo/demo_obra.mp4` (já preenchido) |
 | Imagem | Imagem → *Enviar arquivo* | qualquer foto com pessoas |
 | Câmera | Webcam local | índice `0` |
 

@@ -508,7 +508,7 @@ def main():
             if file_mode == "Enviar arquivo":
                 upload = st.file_uploader("Vídeo", type=["mp4", "avi", "mov", "mkv", "webm"], disabled=running)
             else:
-                video_path = st.text_input("Caminho do vídeo", placeholder="data/demo/demo_obra.mp4", disabled=running)
+                video_path = st.text_input("Caminho do vídeo", value="data/demo/demo_obra.mp4", disabled=running)
         elif source_type == "Imagem":
             file_mode = st.radio("Abrir imagem", ["Enviar arquivo", "Caminho no computador"], disabled=running, horizontal=True)
             if file_mode == "Enviar arquivo":

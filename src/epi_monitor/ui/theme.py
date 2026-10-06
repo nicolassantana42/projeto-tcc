@@ -22,6 +22,8 @@ h1 { font-size: 1.6rem !important; font-weight: 700 !important; letter-spacing: 
 [data-testid="stVerticalBlockBorderWrapper"] { background: var(--surface); border-radius: 10px !important; border-color: var(--border) !important; }
 .stButton button, .stDownloadButton button, [data-testid="stFormSubmitButton"] button { border-radius: 8px !important; font-weight: 600 !important; }
 .stButton button[kind="primary"] p, [data-testid="stFormSubmitButton"] button p { color: #fff !important; }
+.stButton button[kind="primary"]:disabled { background: #E5E7EB !important; border-color: #E5E7EB !important; }
+.stButton button[kind="primary"]:disabled p { color: #6B7280 !important; }
 div[data-epi-preview] { border-radius: 8px !important; max-width: 100% !important; background: #111827 !important; }
 .stTabs [data-baseweb="tab"] { font-weight: 600; }
 .person { display:flex; justify-content:space-between; align-items:center; gap:.5rem; flex-wrap:wrap;
