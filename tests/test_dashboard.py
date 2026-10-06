@@ -80,7 +80,8 @@ def test_preview_start_threshold_export_and_stop(dashboard):
     assert button(app, "▶ Iniciar").disabled
     assert not button(app, "■ Parar").disabled
     assert not button(app, "Preparar exportação").disabled
-    assert all(metric.value == "—" for metric in app.metric[:3])
+    panel = next(item.value for item in app.markdown if 'class="kpis"' in item.value)
+    assert panel.count("<b>—</b>") >= 3  # Illustrative frames never claim measured numbers.
     assert runtime.event_service is None
     first_frame = app.session_state["latest_result"].frame_index
 
@@ -174,7 +175,7 @@ def test_initial_screen_explains_capture_and_channels_stay_disabled(dashboard):
     app = dashboard
     assert app.selectbox(key="source_type").value == "Imagem"
     assert [tab.label for tab in app.tabs] == ["Monitor", "Ocorrências", "Configurações"]
-    assert any("clique em ▶ Iniciar" in info.value for info in app.info)
+    assert any("clique em ▶ Iniciar" in item.value for item in app.markdown)
     assert app.session_state["runtime"] is None
     assert button(app, "Salvar imagem agora").disabled
     assert button(app, "Enviar teste aos canais ativos").disabled

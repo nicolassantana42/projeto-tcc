@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import deque
 from datetime import datetime
+from html import escape
 import json
 from pathlib import Path
 import tempfile
@@ -345,21 +346,28 @@ def _equipment_status(item, equipment):
     return "uncertain", "⚠️ Não detectado"
 
 
-def _render_ppe_assessments(result, details=True):
+def _evaluated(result):
+    return [kind for kind in theme.EQUIPMENT
+            if any(kind in item.present + item.absent + item.uncertain for item in result.assessments)]
+
+
+def _people_markup(result):
     if not result.assessments:
-        st.caption("Nenhuma pessoa no quadro.")
-        return
-    evaluated = [kind for kind in theme.EQUIPMENT
-                 if any(kind in item.present + item.absent + item.uncertain for item in result.assessments)]
+        return '<p class="muted">Nenhuma pessoa no quadro.</p>'
+    evaluated = _evaluated(result)
     symbol = {"ok": "✅", "unsafe": "❌", "uncertain": "⚠️"}
     rows = []
     for item in result.assessments:
         items = "".join(f"<span>{symbol[_equipment_status(item, kind)[0]]} {theme.EQUIPMENT[kind]}</span>" for kind in evaluated)
         rows.append(f'<div class="person"><b>Pessoa {item.index}</b><span class="items">{items}</span>'
                     f'{theme.pill(STATUS_NAMES[item.status], item.status)}</div>')
-    st.markdown("".join(rows), unsafe_allow_html=True)
-    if not details:
-        return  # A table per live frame costs more than the inference itself.
+    return "".join(rows)
+
+
+def _render_ppe_details(result):
+    if not result.assessments:
+        return
+    evaluated = _evaluated(result)
     with st.expander("Detalhes"):
         st.dataframe([{
             "Pessoa": item.index,
@@ -412,13 +420,31 @@ def _live_panel():
     has_metrics = result is not None and not illustrative
     people = result.assessments if has_metrics else []
     fps = st.session_state.get("observed_fps")
+    frame = st.session_state.get("latest_frame")
 
-    metrics = st.columns(4)
-    metrics[0].metric("Pessoas", len(people) if has_metrics else "—")
-    metrics[1].metric("EPIs completos", sum(item.status == "ok" for item in people) if has_metrics else "—")
-    metrics[2].metric("Alertas", sum(item.status == "unsafe" for item in people) if has_metrics else "—")
-    metrics[3].metric("FPS", f"{fps:.1f}" if has_metrics and fps is not None else "—")
+    # Numbers, video and people list go out as ONE element: live reruns can be cut
+    # short by the next tick, and separate elements would then show different frames.
+    values = [("Pessoas", len(people)), ("EPIs completos", sum(item.status == "ok" for item in people)),
+              ("Alertas", sum(item.status == "unsafe" for item in people)),
+              ("FPS", f"{fps:.1f}" if fps is not None else None)]
+    kpis = "".join(f'<div class="kpi"><span>{label}</span><b>{value if has_metrics and value is not None else "—"}</b></div>'
+                   for label, value in values)
+    if frame is None:
+        caption = '<p class="note">Escolha a fonte na barra lateral e clique em ▶ Iniciar.</p>'
+    else:
+        source = escape(str(st.session_state.active_metadata["source"]))
+        caption = (f'<p class="muted">{"Ao vivo" if active else "Pausado"} · quadro {result.frame_index:,} · {source}'
+                   + (f" · inferência {result.inference_ms:.0f} ms" if has_metrics else "") + "</p>")
+    if illustrative and result is not None:
+        caption += '<p class="note">Prévia ilustrativa: desenho sem câmera e sem modelo.</p>'
+    people_html = _people_markup(result) if has_metrics else '<p class="muted">Os resultados aparecem aqui após iniciar.</p>'
+    preview = preview_markup(st.session_state.get("latest_preview") if frame is not None else None)
+    st.markdown(f'<div class="panel"><div class="kpis">{kpis}</div><div class="main"><div class="video">{preview}{caption}</div>'
+                f'<div class="people"><p class="people-title">Pessoas detectadas</p>{people_html}</div></div></div>',
+                unsafe_allow_html=True)
 
+    if st.session_state.get("preview_error"):
+        st.caption(st.session_state.preview_error)
     if runtime is not None and runtime.event_error:
         st.error(runtime.event_error)
     if runtime is not None and runtime.dispatcher is not None:
@@ -429,33 +455,10 @@ def _live_panel():
     if st.session_state.get("last_event"):
         event = st.session_state.last_event
         st.success(f"Ocorrência salva: {event['camera_name']} · {event['location']}. Veja a aba Ocorrências.")
-
-    left, right = st.columns([2, 1], gap="large")
-    with left:
-        frame = st.session_state.get("latest_frame")
-        _show_preview(frame)
-        if frame is None:
-            st.info("Escolha a fonte na barra lateral e clique em ▶ Iniciar.")
-        else:
-            st.caption(f"{'Ao vivo' if active else 'Pausado'} · quadro {result.frame_index:,} · "
-                       f"{st.session_state.active_metadata['source']}"
-                       + (f" · inferência {result.inference_ms:.0f} ms" if has_metrics else ""))
-        if illustrative and result is not None:
-            st.info("Prévia ilustrativa: desenho sem câmera e sem modelo.")
-    with right, st.container(border=True):
-        st.markdown("**Pessoas detectadas**")
-        if has_metrics:
-            _render_ppe_assessments(result, details=not active or st.session_state.active_metadata.get("source") == "Imagem")
-            _render_ppe_capabilities()
-        else:
-            st.caption("Os resultados aparecem aqui após iniciar.")
-
-
-def _show_preview(frame=None):
-    content = st.session_state.get("latest_preview") if frame is not None else None
-    st.markdown(preview_markup(content), unsafe_allow_html=True)
-    if st.session_state.get("preview_error"):
-        st.caption(st.session_state.preview_error)
+    if has_metrics:
+        _render_ppe_capabilities()
+        if not active or st.session_state.active_metadata.get("source") == "Imagem":
+            _render_ppe_details(result)  # A table per live frame costs more than the inference itself.
 
 
 def _remember_model_path(key):
