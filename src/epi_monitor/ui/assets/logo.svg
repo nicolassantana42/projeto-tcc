@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Monitor de EPIs">
+  <defs>
+    <linearGradient id="epi-shield" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0F766E"/>
+      <stop offset="1" stop-color="#14B8A6"/>
+    </linearGradient>
+  </defs>
+  <!-- Escudo: proteção -->
+  <path d="M32 3 L55 11.5 V29.5 C55 45 44.5 55.5 32 61 C19.5 55.5 9 45 9 29.5 V11.5 Z" fill="url(#epi-shield)"/>
+  <!-- Capacete: o EPI -->
+  <path d="M18.5 39 C18.5 28.5 24.5 21.5 32 21.5 C39.5 21.5 45.5 28.5 45.5 39 Z" fill="#FBBF24"/>
+  <rect x="29.5" y="21.5" width="5" height="12" rx="2.5" fill="#F59E0B"/>
+  <rect x="15" y="38" width="34" height="5.5" rx="2.75" fill="#F59E0B"/>
+  <!-- Marca de verificação: detecção -->
+  <path d="M25 49.5 L30 54 L39.5 46" fill="none" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -4,6 +4,7 @@
 
 - [ ] Copiar a **pasta inteira** do projeto, com `models/` e `.venv` (ou ter internet para a 1ª instalação).
 - [ ] Python 3.12 instalado no computador da apresentação (`py -3.12 --version`).
+- [ ] Login de demonstração: usuário `admin`, senha `epi2026`.
 - [ ] Dar dois cliques em `iniciar.bat` e abrir http://localhost:8501 **antes** de chamar a banca (o 1º carregamento do modelo leva alguns segundos).
 - [ ] Testar a webcam em *Fonte → Webcam local* (feche Teams/Zoom, que bloqueiam a câmera).
 - [ ] Tomada ligada: em bateria o Windows reduz a CPU e o FPS cai.

@@ -17,3 +17,7 @@ postScriptGC = false
 
 [browser]
 gatherUsageStats = false
+
+[client]
+# Esconde o botão Deploy e o menu de desenvolvedor na apresentação.
+toolbarMode = "viewer"

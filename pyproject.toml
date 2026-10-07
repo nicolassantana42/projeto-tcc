@@ -22,6 +22,9 @@ epi-monitor = "epi_monitor.cli:main"
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
 
+[tool.setuptools.package-data]
+"epi_monitor.ui" = ["assets/*.svg"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["epi_monitor*"]

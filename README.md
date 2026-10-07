@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/logo.svg" width="96" alt="Logo do Monitor de EPIs"></p>
+
 # Monitor de EPIs — detecção de capacete, colete e bota com YOLO11
 
 Trabalho de Conclusão de Curso. Sistema de visão computacional que analisa imagens, vídeos ou câmera e indica, **para cada pessoa**, se ela está usando **capacete, colete e bota**. Quando detecta a falta de um EPI, registra uma ocorrência com foto e pode enviar um alerta pelo Telegram.
@@ -63,7 +65,13 @@ Fonte dos números: `models/ppe/epi.metrics.json` e `runs/train/ppe_epi3/`. Trei
 1. Instale o **Python 3.12** (uma vez): `winget install -e --id Python.Python.3.12`
 2. Clone o repositório. Os modelos treinados já vêm junto.
 3. Dê **dois cliques em `iniciar.bat`** (ou rode `python run.py`). Na primeira vez ele cria o ambiente e instala as dependências (precisa de internet, ~3 a 5 min).
-4. O navegador abre em **http://localhost:8501**.
+4. O navegador abre em **http://localhost:8501**. Entre com o acesso de demonstração:
+
+   | Usuário | Senha |
+   |---|---|
+   | `admin` | `epi2026` |
+
+   Para trocar, crie `.streamlit/secrets.toml` com a seção `[login]` (modelo em `.streamlit/secrets.example.toml`) ou defina `EPI_LOGIN_USER` e `EPI_LOGIN_PASSWORD`.
 
 ## Como usar
 

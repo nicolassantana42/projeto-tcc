@@ -6,6 +6,7 @@ from collections import deque
 from datetime import datetime
 from html import escape
 import json
+import os
 from pathlib import Path
 import tempfile
 import threading
@@ -27,7 +28,7 @@ from epi_monitor.types import Detection, FrameResult
 from epi_monitor.events import EventService
 from epi_monitor.notifications import NotificationDispatcher
 from epi_monitor.ui.preview import AnalysisPacer, encode_preview, preview_markup
-from epi_monitor.ui import profiles, theme
+from epi_monitor.ui import auth, profiles, theme
 from epi_monitor.ui.alert_panels import (
     camera_context, configured_senders, event_policy, event_store, init_alert_settings,
     render_alert_settings, render_occurrences, reports_root,
@@ -488,6 +489,8 @@ def _model_summary():
 def main():
     st.set_page_config(page_title="Monitor de EPIs", page_icon="🦺", layout="wide")
     st.markdown(theme.CSS, unsafe_allow_html=True)
+    if not auth.require_login():
+        return
     init_alert_settings()
     for key, value in {
         "runtime": None, "history": deque(maxlen=HISTORY_LIMIT), "latest_result": None,
@@ -500,7 +503,8 @@ def main():
     running = runtime is not None and not runtime.closed
 
     with st.sidebar:
-        st.markdown("### 🦺 Monitor de EPIs")
+        st.markdown(f'<div class="brand">{auth.logo_img(36)}<div><b>Monitor de EPIs</b><span>Visão computacional · TCC</span></div></div>',
+                    unsafe_allow_html=True)
         source_type = st.selectbox("Fonte de entrada", ["Imagem", "Arquivo de vídeo", "Webcam local", "RTSP / IP", PREVIEW],
                                    key="source_type", disabled=running)
         upload, camera_index, stream_url, video_path = None, 0, "", ""
@@ -580,9 +584,13 @@ def main():
         st.caption(f"📍 {settings['camera_name']} · {settings['location'] or 'local não informado'}")
         st.caption(f"Gravação: {'ativa' if settings['save_enabled'] else 'desativada'} · Telegram: {telegram_status}.")
         st.caption(_model_summary())
+        if os.environ.get("EPI_LOGIN_DISABLED") != "1" and st.button("Sair", key="logout", width="stretch"):
+            _stop()
+            auth.logout()
+            st.rerun()
 
-    st.title("Monitor de EPIs")
-    st.markdown('<p class="muted">Capacete, colete e bota por pessoa · YOLO11</p>', unsafe_allow_html=True)
+    st.markdown(f'<div class="page-head">{auth.logo_img(44)}<div><h1>Monitor de EPIs</h1>'
+                '<p class="muted">Capacete, colete e bota por pessoa · YOLO11</p></div></div>', unsafe_allow_html=True)
     if st.session_state.notice:
         st.info(st.session_state.notice)
 

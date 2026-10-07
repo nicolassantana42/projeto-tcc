@@ -36,6 +36,17 @@ div[data-epi-preview] { border-radius: 8px !important; max-width: 100% !importan
 .pill.ok { background:#ECFDF5; color:#047857; } .pill.unsafe { background:#FEF2F2; color:#B91C1C; }
 .pill.uncertain { background:#FFFBEB; color:#B45309; } .pill.neutral { background:#F3F4F6; color:#374151; }
 .muted { color: var(--muted); font-size: .85rem; }
+.brand { display:flex; align-items:center; gap:.65rem; padding:.2rem 0 1rem; border-bottom:1px solid var(--border); margin-bottom:.8rem; }
+.brand b { display:block; color:var(--text); font-size:1rem; }
+.brand span { display:block; color:var(--muted); font-size:.75rem; }
+.page-head { display:flex; align-items:center; gap:.85rem; margin-bottom:.6rem; }
+.page-head h1 { margin:0 !important; padding:0 !important; }
+.page-head p { margin:.1rem 0 0; }
+.login-head { text-align:center; margin:9vh 0 1.2rem; }
+.login-head h2 { margin:.6rem 0 .2rem !important; font-size:1.5rem !important; color:var(--text) !important; }
+.login-head p { color:var(--muted); font-size:.9rem; margin:0; }
+[data-testid="stForm"] { background:var(--surface); border-radius:12px !important; box-shadow:0 8px 24px rgba(16,24,40,.08); padding:1.4rem 1.4rem .6rem !important; }
+.login-foot { text-align:center; color:var(--muted); font-size:.78rem; margin-top:1rem; }
 .panel { display:flex; flex-direction:column; gap:1rem; margin-bottom:.5rem; }
 .kpis { display:grid; grid-template-columns:repeat(4, 1fr); gap:.75rem; }
 .kpi { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:.75rem 1rem; }
